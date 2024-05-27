@@ -1,6 +1,13 @@
+import os
+
+
 class Configs:
-    def __init__(self, project_name, environment) -> None:
+    def __init__(self, project_name, environment, llm_name, version) -> None:
         assert environment in ['charlie', 'cluster']
+        self.project_name = project_name
+        self.environment = environment
+        self.llm_name = llm_name
+        self.version = version
 
         self.root_dir = '/evosuite_pp' if environment == 'charlie' else '/home/q/qibh/Documents'
 
@@ -14,3 +21,7 @@ class Configs:
         else:
             raise ValueError('Invalid project name')
         
+        self.test_case_initial_gen_save_path = f'./data/generated_test_cases/{project_name}_{llm_name}_init_gen_{version}.json'
+        self.test_case_save_path = f'./data/generated_test_cases/{project_name}_{llm_name}_processed_{version}.json'
+
+        self.test_case_run_log_dir = os.path.abspath(f'./data/generated_test_cases_run_log/{project_name}_{llm_name}_{version}')
