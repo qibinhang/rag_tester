@@ -89,7 +89,7 @@ def pipeline_for_generation_with_rag():
             corpus_tc_clean.append(each[2])
             
         retriever = RetrieverBM25(corpus_fm_clean, corpus_tc_clean)
-        reference_focal_methods, reference_test_cases = retriever.retrieve(target_fm=target_focal_method, top_k=3)
+        reference_focal_methods, reference_test_cases = retriever.retrieve(target_fm=target_focal_method, top_k=3, mode=retrieval_mode)
 
         # generate test cases
         # with no reference
@@ -209,7 +209,7 @@ if __name__ == '__main__':
     environment = ['charlie', 'cluster'][0]
     project_name = ['spark', 'HdrHistogram'][0]
     llm_name = ['llama_3', 'llama_3:70b'][0]
-    retrieval_mode = ['fm', 'tc', 'both'][0]
+    retrieval_mode = ['fm', 'tc', 'both'][2]
 
     version = f'v0.8_mode_{retrieval_mode}'
     version_intro = 'Add the ability to generate test cases with the help of RAG (BM25). Retrieval mode is fm.'
