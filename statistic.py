@@ -7,23 +7,41 @@ class Statistic():
         self.configs = configs
 
     def analyze_test_case_pass(self): 
-        no_ref_log_names, with_ref_log_names = [], []
+        no_ref_log_names, human_ref_log_names, rag_ref_log_names = [], [], []
         for each_log in os.listdir(self.configs.test_case_run_log_dir):
             if 'no_ref' in each_log:
                 no_ref_log_names.append(each_log)
+            elif 'human_ref' in each_log:
+                human_ref_log_names.append(each_log)
             else:
-                with_ref_log_names.append(each_log)
-        assert len(no_ref_log_names) == len(with_ref_log_names)
+                rag_ref_log_names.append(each_log)
+        assert len(no_ref_log_names) == len(human_ref_log_names)
+
+        if len(rag_ref_log_names) > 0:
+            assert len(no_ref_log_names) == len(rag_ref_log_names)
 
         no_ref_fail_compile, no_ref_fail_execute, no_ref_success_pass, no_ref_fail_compile_count, no_ref_fail_execute_count, no_ref_success_pass_count = self.analyze_test_case_running_log(no_ref_log_names)
-        with_ref_fail_compile, with_ref_fail_execute, with_ref_success_pass, with_ref_fail_compile_count, with_ref_fail_execute_count, with_ref_success_pass_count = self.analyze_test_case_running_log(with_ref_log_names)
 
-        print(f'[No Reference]\nFail Compile: {no_ref_fail_compile_count}, Fail Execute: {no_ref_fail_execute_count}, Success Pass: {no_ref_success_pass_count}\n\n')
-        print(f'[With Reference]\nFail Compile: {with_ref_fail_compile_count}, Fail Execute: {with_ref_fail_execute_count}, Success Pass: {with_ref_success_pass_count}\n\n')
+        human_ref_fail_compile, human_ref_fail_execute, human_ref_success_pass, human_ref_fail_compile_count, human_ref_fail_execute_count, human_ref_success_pass_count = self.analyze_test_case_running_log(human_ref_log_names)
+
+        if len(rag_ref_log_names) > 0:
+            rag_ref_fail_compile, rag_ref_fail_execute, rag_ref_success_pass, rag_ref_fail_compile_count, rag_ref_fail_execute_count, rag_ref_success_pass_count = self.analyze_test_case_running_log(rag_ref_log_names)
+
+        print('\nSummary')
+        print('-----------------------------------')
+        print(f'[No Reference]\nFail Compile: {no_ref_fail_compile_count}, Fail Execute: {no_ref_fail_execute_count}, Success Pass: {no_ref_success_pass_count}({len(no_ref_success_pass)})\n')
+        print(f'[With Human Reference]\nFail Compile: {human_ref_fail_compile_count}, Fail Execute: {human_ref_fail_execute_count}, Success Pass: {human_ref_success_pass_count}({len(human_ref_success_pass)})\n')
+
+        if len(rag_ref_log_names) > 0:
+            print(f'[With RAG Reference]\nFail Compile: {rag_ref_fail_compile_count}, Fail Execute: {rag_ref_fail_execute_count}, Success Pass: {rag_ref_success_pass_count}({len(rag_ref_success_pass)})')
+        print('-----------------------------------\n')
 
         print('Detailed information:')
         print(f'[No Reference]\nFail Compile: {no_ref_fail_compile}\n\nFail Execute: {no_ref_fail_execute}\n\nSuccess Pass: {no_ref_success_pass}\n\n')
-        print(f'[With Reference]\nFail Compile: {with_ref_fail_compile}\n\nFail Execute: {with_ref_fail_execute}\n\nSuccess Pass: {with_ref_success_pass}\n\n')
+        print(f'[With Human Reference]\nFail Compile: {human_ref_fail_compile}\n\nFail Execute: {human_ref_fail_execute}\n\nSuccess Pass: {human_ref_success_pass}\n\n')
+
+        if len(rag_ref_log_names) > 0:
+            print(f'[With RAG Reference]\nFail Compile: {rag_ref_fail_compile}\n\nFail Execute: {rag_ref_fail_execute}\n\nSuccess Pass: {rag_ref_success_pass}\n\n')
 
     def analyze_test_case_running_log(self, log_names):
         fail_compile, fail_execute, success_pass = [], [], []
