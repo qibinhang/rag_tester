@@ -110,7 +110,7 @@ def pipeline_for_generation_with_rag():
 
 def process_generated_test_cases():
     def _process(init_generation):
-        result = re.search(r'```java\n(.*)```', init_generation, re.DOTALL)
+        result = re.search(r'```java\n(.*)```', init_generation, re.DOTALL)  # TODO: fix bug. when generation has two code parts.
         if result is None:
             result = re.search(r'```(.*)```', init_generation, re.DOTALL)
         try:
@@ -125,7 +125,7 @@ def process_generated_test_cases():
         if class_name is not None:
             class_name = class_name.group(1)
             if 'Test' not in class_name:
-                raise ValueError(f'Invalid class name in the generated test case:\n{processed_test_case}')
+                raise ValueError(f'Invalid class name in the generated test case:\n{processed_test_case}. Maybe need manually check the extraction.')
         else:
             print('[WARNING] Cannot find the class name in the generated test case:\n', processed_test_case, '\n\n')
             # find the method name
@@ -200,7 +200,7 @@ def main():
     test_case_runner = TestCaseRunner(configs)
     run_all_test_cases(test_case_runner)
     
-    # # statistics of test case execution
+    # statistics of test case execution
     statistic = Statistic(configs)
     get_statistics(statistic)
 
@@ -211,11 +211,11 @@ if __name__ == '__main__':
     llm_name = ['llama_3', 'llama_3:70b'][0]
     retrieval_mode = ['fm', 'tc', 'both'][2]
 
-    version = f'v0.8_mode_{retrieval_mode}'
-    version_intro = 'Add the ability to generate test cases with the help of RAG (BM25). Retrieval mode is fm.'
+    version = f'v0.9_mode_{retrieval_mode}'
+    version_intro = 'refine the prompt.'
     configs = Configs(project_name, environment, llm_name, version)
     
-    configs.max_input_len = 7000
+    configs.max_context_len = 2000
     configs.max_num_generated_tokens = 1024
     configs.top_p = 0.95
     configs.tempurature = 0.1

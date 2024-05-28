@@ -15,10 +15,12 @@ class Statistic():
                 human_ref_log_names.append(each_log)
             else:
                 rag_ref_log_names.append(each_log)
-        assert len(no_ref_log_names) == len(human_ref_log_names)
+        if len(no_ref_log_names) != len(human_ref_log_names):
+                raise ValueError(f'len(no_ref_log_names) != len(human_ref_log_names). {len(no_ref_log_names)} != {len(human_ref_log_names)}')
 
         if len(rag_ref_log_names) > 0:
-            assert len(no_ref_log_names) == len(rag_ref_log_names)
+            if len(no_ref_log_names) != len(rag_ref_log_names):
+                raise ValueError(f'len(no_ref_log_names) != len(rag_ref_log_names). {len(no_ref_log_names)} != {len(rag_ref_log_names)}')
 
         no_ref_fail_compile, no_ref_fail_execute, no_ref_success_pass, no_ref_fail_compile_count, no_ref_fail_execute_count, no_ref_success_pass_count = self.analyze_test_case_running_log(no_ref_log_names)
 
