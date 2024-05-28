@@ -110,13 +110,19 @@ def pipeline_for_generation_with_rag():
 
 def process_generated_test_cases():
     def _process(init_generation):
-        result = re.search(r'```java\n(.*)```', init_generation, re.DOTALL)  # TODO: fix bug. when generation has two code parts.
-        if result is None:
-            result = re.search(r'```(.*)```', init_generation, re.DOTALL)
-        try:
-            processed_test_case = result.group(1)
-            assert len(processed_test_case) > 0
-        except:
+        result = re.findall(r'```java\n(.*?)```', init_generation, re.DOTALL)
+        if len(result) == 0:
+            result = re.findall(r'```\n(.*?)```', init_generation, re.DOTALL)
+        if len(result) == 0:
+            print('[WARNING] Abnormal generated test case:\n', init_generation, '\n\n')
+            return None
+
+        processed_test_case = None
+        for each_code in result:
+            if '@Test' in each_code:
+                processed_test_case = each_code
+                break
+        if processed_test_case is None:
             print('[WARNING] Abnormal generated test case:\n', init_generation, '\n\n')
             return None
         
@@ -191,7 +197,7 @@ def main():
     # generate_all_test_cases(generator)
 
     # generate all test cases with rag (BM25)
-    pipeline_for_generation_with_rag()
+    # pipeline_for_generation_with_rag()
     
     # process the generated test cases
     process_generated_test_cases()
