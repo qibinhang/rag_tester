@@ -1,5 +1,7 @@
 import os
 import re
+import json
+import evaluate
 
 
 class Statistic():
@@ -80,3 +82,35 @@ class Statistic():
                 print(f'[WARNING] Unknown error type: {running_log_path}')
 
         return fail_compile, fail_execute, success_pass, fail_compile_count, fail_execute_count, success_pass_count
+    
+    def cal_bleu_for_saved_file(self):
+        with open(self.configs.test_case_save_path, 'r') as f:
+            generated_test_cases = json.load(f)
+
+        test_case_no_ref_list, test_case_with_ref_list, test_case_with_rag_ref_list = [], [], []
+        target_test_case_list = []
+        for each_test_case in generated_test_cases:
+            focal_method_path, test_case_no_ref_path, test_case_no_ref, test_case_with_ref_path, test_case_with_ref, test_case_with_rag_ref_path, test_case_with_rag_ref, target_test_case = each_test_case
+            
+            test_case_no_ref_list.append(test_case_no_ref)
+            test_case_with_ref_list.append(test_case_with_ref)
+            test_case_with_rag_ref_list.append(test_case_with_rag_ref)
+
+            target_test_case_list.append(target_test_case)
+        
+        bleu_no_ref = self.cal_bleu(test_case_no_ref_list, target_test_case_list)
+        bleu_with_ref = self.cal_bleu(test_case_with_ref_list, target_test_case_list)
+        bleu_with_rag_ref = self.cal_bleu(test_case_with_rag_ref_list, target_test_case_list)
+
+        print(f'BLEU-4 without reference: {bleu_no_ref:.4f}')
+        print(f'BLEU-4 with human reference: {bleu_with_ref:.4f}')
+        print(f'BLEU-4 with RAG reference: {bleu_with_rag_ref:.4f}')
+
+        return bleu_no_ref, bleu_with_ref, bleu_with_rag_ref
+
+    def cal_bleu(self, generated_test_cases, target_test_cases):
+        bleu = evaluate.load('bleu')
+        bleu_score = bleu.compute(predictions=generated_test_cases, references=target_test_cases)
+        bleu_4 = bleu_score['precisions'][3]
+
+        return bleu_4

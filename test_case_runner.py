@@ -13,6 +13,8 @@ class TestCaseRunner():
                 focal_method_path, test_case_no_ref_path, test_case_no_ref, test_case_with_ref_path, test_case_with_ref = each_test_case_path
             elif len(each_test_case_path) == 7:
                 focal_method_path, test_case_no_ref_path, test_case_no_ref, test_case_with_ref_path, test_case_with_ref, test_case_with_rag_ref_path, test_case_with_rag_ref = each_test_case_path
+            elif len(each_test_case_path) == 8:
+                focal_method_path, test_case_no_ref_path, test_case_no_ref, test_case_with_ref_path, test_case_with_ref, test_case_with_rag_ref_path, test_case_with_rag_ref, target_test_case = each_test_case_path
             else:
                 raise ValueError('Invalid test case format')
 
@@ -32,7 +34,7 @@ class TestCaseRunner():
             self.run_test_case(test_case_with_ref_path, focal_method_path, is_ref='human')
             os.remove(test_case_with_ref_path)
 
-            if len(each_test_case_path) == 7:
+            if len(each_test_case_path) >= 7:
                 print('Running the test case with rag reference...')
                 os.makedirs(os.path.dirname(test_case_with_rag_ref_path), exist_ok=True)
                 with open(test_case_with_rag_ref_path, 'w') as f:

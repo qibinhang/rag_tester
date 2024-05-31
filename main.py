@@ -40,7 +40,7 @@ def pipeline_for_generation_with_rag():
     for each_sample in raw_samples:
         # each sample: (focal_file_path, target_focal_method, target_test_case, references)
         focal_file_path = each_sample[0]
-        target_focal_method, reference_test_cases = each_sample[1], each_sample[3]
+        target_focal_method, target_test_case, reference_test_cases = each_sample[1], each_sample[2], each_sample[3]
         best_reference_focal_method = reference_test_cases[0][0]
         best_reference_test_case = reference_test_cases[0][1]
 
@@ -55,7 +55,7 @@ def pipeline_for_generation_with_rag():
                 context = '\n'.join(context_lines[i:])
                 break
         
-        samples.append((focal_file_path, target_focal_method, context, best_reference_test_case, best_reference_focal_method))
+        samples.append((focal_file_path, target_focal_method, context, target_test_case, best_reference_test_case, best_reference_focal_method))
     
     # load corpus
     # TODO remove duplicated pairs
@@ -76,7 +76,7 @@ def pipeline_for_generation_with_rag():
     generator = Generator(configs)
 
     for each_sample in tqdm(samples, ncols=80, desc='Generating test cases'):
-        focal_file_path, target_focal_method, context, best_reference_test_case, best_reference_focal_method = each_sample
+        focal_file_path, target_focal_method, context, target_test_case, best_reference_test_case, best_reference_focal_method = each_sample
 
         # prepare retriever
         # remove the target focal method from the corpus
@@ -101,7 +101,7 @@ def pipeline_for_generation_with_rag():
         # with rag reference
         generation_with_rag_ref = generator.generate_test_case(target_focal_method, context, reference_test_cases[0], reference_focal_methods[0])
 
-        generated_test_cases.append((focal_file_path, generation_no_ref, generation_with_human_ref, generation_with_rag_ref))
+        generated_test_cases.append((focal_file_path, generation_no_ref, generation_with_human_ref, generation_with_rag_ref, target_test_case))
     
     os.makedirs(os.path.dirname(configs.test_case_initial_gen_save_path), exist_ok=True)
     with open(configs.test_case_initial_gen_save_path, 'w') as f:
@@ -147,6 +147,9 @@ def process_generated_test_cases():
     with open(configs.test_case_initial_gen_save_path, 'r') as f:
         test_cases = json.load(f)
 
+    # the previous version's saved test cases do not include target_test_case. the new version added target_test_case.
+    assert len(test_cases[0]) == 5
+
     # save the generated test cases
     saved_test_cases = []  # will be saved to a json file
     for each_test_case in tqdm(test_cases, ncols=80, desc='Processing generated test cases'):
@@ -157,22 +160,18 @@ def process_generated_test_cases():
 
         test_case_no_ref, class_name_no_ref = _process(each_test_case[1])
         test_case_with_ref, class_name_with_ref = _process(each_test_case[2])
-        if test_case_no_ref is None or test_case_with_ref is None:
+        test_case_with_rag_ref, class_name_with_rag_ref = _process(each_test_case[3])
+        if test_case_no_ref is None or test_case_with_ref is None or test_case_with_rag_ref is None:
             print(f'[WARNING] Abnormal test case: {focal_method_path}') 
             continue
 
         test_case_no_ref_path = f'{test_case_dir}/{class_name_no_ref}.java'
         test_case_with_ref_path = f'{test_case_dir}/{class_name_with_ref}.java'
+        test_case_with_rag_ref_path = f'{test_case_dir}/{class_name_with_rag_ref}.java'
+
+        target_test_case = each_test_case[4]
         
-        if len(each_test_case) == 4:
-            test_case_with_rag_ref, class_name_with_rag_ref = _process(each_test_case[3])
-            if test_case_with_rag_ref is None:
-                print(f'[WARNING] Abnormal test case: {focal_method_path}')
-                continue
-            test_case_with_rag_ref_path = f'{test_case_dir}/{class_name_with_rag_ref}.java'
-            saved_test_cases.append((focal_method_path, test_case_no_ref_path, test_case_no_ref, test_case_with_ref_path, test_case_with_ref, test_case_with_rag_ref_path, test_case_with_rag_ref))
-        else:
-            saved_test_cases.append((focal_method_path, test_case_no_ref_path, test_case_no_ref, test_case_with_ref_path, test_case_with_ref))
+        saved_test_cases.append((focal_method_path, test_case_no_ref_path, test_case_no_ref, test_case_with_ref_path, test_case_with_ref, test_case_with_rag_ref_path, test_case_with_rag_ref, target_test_case))
 
     os.makedirs(os.path.dirname(configs.test_case_save_path), exist_ok=True)
     with open(configs.test_case_save_path, 'w') as f:
@@ -189,6 +188,7 @@ def run_all_test_cases(test_case_runner):
 
 def get_statistics(statistic):
     statistic.analyze_test_case_pass()
+    statistic.cal_bleu_for_saved_file()
 
 
 def main():
@@ -197,7 +197,7 @@ def main():
     # generate_all_test_cases(generator)
 
     # generate all test cases with rag (BM25)
-    # pipeline_for_generation_with_rag()
+    pipeline_for_generation_with_rag()
     
     # process the generated test cases
     process_generated_test_cases()
@@ -217,11 +217,11 @@ if __name__ == '__main__':
     llm_name = ['llama_3', 'llama_3:70b'][0]
     retrieval_mode = ['fm', 'tc', 'both'][2]
 
-    version = f'v0.9_mode_{retrieval_mode}'
-    version_intro = 'refine the prompt.'
+    version = f'v0.9.2_mode_{retrieval_mode}'
+    version_intro = 'adjust the format of saved test case file. So check the source code.'
     configs = Configs(project_name, environment, llm_name, version)
     
-    configs.max_context_len = 2000
+    configs.max_context_len = 1000
     configs.max_num_generated_tokens = 1024
     configs.top_p = 0.95
     configs.tempurature = 0.1
