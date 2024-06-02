@@ -7,25 +7,12 @@ from generator import Generator
 from retriever_bm25 import Retriever as RetrieverBM25
 from test_case_runner import TestCaseRunner
 from statistic import Statistic
-
-
-def get_samples(file_path):
-    with open(file_path, 'r') as f:
-        data = json.load(f)
-
-    # load the data from the json file
-    samples = []
-    for focal_file_path, focal_methods in data.items():
-        for each_focal_method in focal_methods:
-            target_focal_method = each_focal_method['target_focal_method']
-            target_test_case = each_focal_method['target_test_case']
-            references = each_focal_method['references']
-            samples.append((focal_file_path, target_focal_method, target_test_case, references))
-    return samples
+from dataset import Dataset
 
 
 def generate_all_test_cases(generator):
-    samples = get_samples(configs.samples_path)
+    dataset = Dataset(configs)
+    samples = dataset.load_raw_data()
     test_cases = generator.generate_all_test_cases(samples)
     
     os.makedirs(os.path.dirname(configs.test_case_initial_gen_save_path), exist_ok=True)
@@ -35,7 +22,8 @@ def generate_all_test_cases(generator):
 
 def pipeline_for_generation_with_rag():
     # load target focal methods
-    raw_samples = get_samples(configs.samples_path)
+    dataset = Dataset(configs)
+    raw_samples = dataset.load_raw_data()
     samples = []
     for each_sample in raw_samples:
         # each sample: (focal_file_path, target_focal_method, target_test_case, references)
@@ -217,8 +205,8 @@ if __name__ == '__main__':
     llm_name = ['llama_3', 'llama_3:70b'][0]
     retrieval_mode = ['fm', 'tc', 'both'][2]
 
-    version = f'v0.9.2_mode_{retrieval_mode}'
-    version_intro = 'adjust the format of saved test case file. So check the source code.'
+    version = f'v0.9.3.1_mode_{retrieval_mode}'
+    version_intro = 'moving prompt construction to the instruction_constructor.py. Additionally, moving get_samples() to dataset.py.'
     configs = Configs(project_name, environment, llm_name, version)
     
     configs.max_context_len = 1000

@@ -30,3 +30,5 @@ class Configs:
         self.test_case_save_path = f'./data/generated_test_cases/{project_name}_{llm_name}_processed_{version}.json'
 
         self.test_case_run_log_dir = os.path.abspath(f'./data/generated_test_cases_run_log/{project_name}_{llm_name}_{version}')
+
+        self.coverage_data_human_labeled_path = f'./data/{project_name}/coverage_human_labeled.json'
