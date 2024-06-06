@@ -4,6 +4,7 @@ import os
 import random
 import torch
 from datasets import load_dataset
+import datasets
 from transformers import AutoTokenizer, TrainingArguments
 from trl.commands.cli_utils import  TrlParser
 from transformers import (
@@ -15,10 +16,11 @@ from transformers import (
 )
 from trl import setup_chat_format
 from peft import LoraConfig
+from trl import SFTTrainer
 
-
-from trl import (
-   SFTTrainer)
+from dataset import Dataset as CoverageDataset
+from instruction_constructor import InstructionConstructor
+from configs import Configs as ProjectConfigs
 
 # Comment in if you want to use the Llama 3 instruct template but make sure to add modules_to_save
 # LLAMA_3_CHAT_TEMPLATE="{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}"
@@ -40,8 +42,6 @@ LLAMA_3_CHAT_TEMPLATE = (
 )
 
 
-# ACCELERATE_USE_FSDP=1 FSDP_CPU_RAM_EFFICIENT_LOADING=1 torchrun --nproc_per_node=4 ./scripts/run_fsdp_qlora.py --config llama_3_70b_fsdp_qlora.yaml
-
 @dataclass
 class ScriptArguments:
     dataset_path: str = field(
@@ -62,21 +62,58 @@ class ScriptArguments:
     )
 
 
+def load_instruct_data(task: str):
+    if task == 'cov_pred_given_tc':
+        return load_fm_tc2cov_instruct_data()
+    elif task == 'imp_cov_pred':
+        raise NotImplementedError('Not implemented yet')
+    elif task == 'tc_gen':
+        raise NotImplementedError('Not implemented yet')
+    else:
+        raise ValueError('Invalid task')
+
+
+def load_fm_tc2cov_instruct_data():
+    configs = ProjectConfigs()
+    dataset = CoverageDataset(configs)
+    coverage_data = dataset.load_coverage_data(label_method='human') # format: [<Coverage, Context, Test case>]
+
+    # convert format by adding instruction: 
+    # list({"messages": [{"role":"system", "content": system_instruction,},{"role":"user", "content": user_instruction},{"role":"assistant", "content": assistant_instruction}]})
+    fm_tc2cov_instruct_data = []
+    instruction_constructor = InstructionConstructor()
+    random.seed(training_args.seed)
+    coverage_data_indices = list(range(len(coverage_data)))
+    random.shuffle(coverage_data_indices)
+    for i, each_coverage in enumerate(coverage_data):
+        # add instructions of system and usesr
+        coverage, context, test_case = each_coverage
+        focal_method = coverage.replace("<COVER>", "")
+
+        example_cov_context_tc = coverage_data[coverage_data_indices[i]]
+        example_fm = example_cov_context_tc[0].replace("<COVER>", "")
+        example_fm_context_tc_cov = [example_fm, example_cov_context_tc[1], example_cov_context_tc[2], example_cov_context_tc[0]]
+
+        system_user_instruct = instruction_constructor.instruct_for_coverage_predict_given_tc(focal_method, context, test_case, example_fm_context_tc_cov)
+
+        # add instruction of assistant
+        assistant_instruct = {"role": "assistant", "content":f'\n```\n{coverage}```\n'}
+        fm_tc2cov_instruct_data.append({"messages": system_user_instruct + [assistant_instruct]})
+    return fm_tc2cov_instruct_data
+
+
 def training_function(script_args, training_args):
     ################
     # Dataset
     ################
-    
-    train_dataset = load_dataset(
-        "json",
-        data_files=os.path.join(script_args.dataset_path, "no_robots_train_dataset.json"),
-        split="train",
-    )
-    test_dataset = load_dataset(
-        "json",
-        data_files=os.path.join(script_args.dataset_path, "no_robots_test_dataset.json"),
-        split="train",
-    )
+
+    instruct_data = load_instruct_data(task='cov_pred_given_tc')
+    random.seed(training_args.seed)
+    random.shuffle(instruct_data)
+    train_dataset = instruct_data[:int(0.8 * len(instruct_data))]
+    test_dataset = instruct_data[int(0.8 * len(instruct_data)):]
+    train_dataset = datasets.Dataset.from_list(train_dataset)
+    test_dataset = datasets.Dataset.from_list(test_dataset)
 
     ################
     # Model & Tokenizer
@@ -86,6 +123,7 @@ def training_function(script_args, training_args):
     tokenizer = AutoTokenizer.from_pretrained(script_args.model_id, use_fast=True, token=script_args.access_token)
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.chat_template = LLAMA_3_CHAT_TEMPLATE
+    tokenizer.add_special_tokens({'additional_special_tokens': ['<COVER>']})
     
     # template dataset
     def template_dataset(examples):
@@ -98,11 +136,10 @@ def training_function(script_args, training_args):
     with training_args.main_process_first(
         desc="Log a few random samples from the processed training set"
     ):
-        for index in random.sample(range(len(train_dataset)), 2):
+        for index in random.sample(range(len(train_dataset)), 1):
             print(train_dataset[index]["text"])
 
     # Model   
-
     model = AutoModelForCausalLM.from_pretrained(
             script_args.model_id,
             torch_dtype=torch.bfloat16,
@@ -110,7 +147,11 @@ def training_function(script_args, training_args):
             token=script_args.access_token,
             use_cache=False if training_args.gradient_checkpointing else True,  # this is needed for gradient checkpointing
         )
-    
+
+    if len(tokenizer) > model.get_input_embeddings().weight.shape[0]:
+        print("INFO: Resizing the embedding matrix to match the tokenizer vocab size.")
+        model.resize_token_embeddings(len(tokenizer))
+        
     if training_args.gradient_checkpointing:
         model.gradient_checkpointing_enable()
 
@@ -126,6 +167,7 @@ def training_function(script_args, training_args):
         bias="none",
         target_modules="all-linear",
         task_type="CAUSAL_LM",
+        modules_to_save = ["embed_tokens"]
         # modules_to_save = ["lm_head", "embed_tokens"] # add if you want to use the Llama 3 instruct template
     )
 
@@ -163,8 +205,11 @@ def training_function(script_args, training_args):
     ##########################
     if trainer.is_fsdp_enabled:
         trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
-    trainer.save_model()
+    # trainer.save_model()
+    print("Saving model to", training_args.output_dir)
+    trainer.model.save_pretrained(training_args.output_dir, save_embedding_layers=True)
     
+
 if __name__ == "__main__":
     parser = TrlParser((ScriptArguments, TrainingArguments))
     script_args, training_args = parser.parse_args_and_config()    

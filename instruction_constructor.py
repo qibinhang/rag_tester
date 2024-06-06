@@ -13,13 +13,36 @@ class InstructionConstructor:
         self.example_reference_test_case = """package spark;\n\nimport org.junit.Before;\nimport org.junit.Test;\n\nimport static org.junit.Assert.assertEquals;\n\npublic class FilterImplTest {\n\n    public String PATH_TEST;\n    public String ACCEPT_TYPE_TEST;\n    public FilterImpl filter;\n\n    @Before\n    public void setup(){\n        PATH_TEST = "/etc/test";\n        ACCEPT_TYPE_TEST  = "test/*";\n    }\n\n    @Test\n    public void testGets_thenReturnGetPathAndGetAcceptTypeSuccessfully() throws Exception {\n        filter = FilterImpl.create(PATH_TEST, ACCEPT_TYPE_TEST, null);\n        assertEquals("Should return path specified", PATH_TEST, filter.getPath());\n        assertEquals("Should return accept type specified", ACCEPT_TYPE_TEST, filter.getAcceptType());\n    }\n}"""
 
     # TODO: make sure the tag <COVER> has been added to the vocabulary of the model
-    def instruct_for_coverage_predict_given_tc(self, target_focal_method, context, target_test_case):
-        system_prompt = f"""You are an expert in Junit test case generation. I will give you a target focal method with its context and target test case. You must think the execution of the target test case and predict the covered code lines of the target focal method. Finally, you need to output the coverage. The coverage is the target focal method with each covered code line marked with <COVER> at the beginning of the line.\nNOTE: DO NOT PROVIDE AN EXPLANATION. JUST OUTPUT THE FINAL PREDICTED CODE COVERAGE\n"""
+    def instruct_for_coverage_predict_given_tc(self, target_focal_method, context, target_test_case, example_fm_context_tc_cov: list=None):
+        if example_fm_context_tc_cov is not None:
+            example_fm, example_context, example_tc, example_cov = example_fm_context_tc_cov
+        else:
+            example_fm, example_context, example_tc, example_cov = self.example_target_focal_method, self.example_target_context, self.example_target_test_case, self.example_target_coverage
 
-        system_prompt += f"""For example, I will give you the following target focal method:\n```\n{self.example_target_focal_method}\n```\nThe target focal method belongs to the following java file :\n```\n{self.example_target_context}\n```\nThe following is the target test case which is used to test the target focal method:\n```\n{self.example_target_test_case}\n```\nGiven the above inputs, you need to output the following target coverage without any explanation, where the code lines you predict to be covered are marked with <COVER> at the beginning of the line:\n```\n{self.example_target_coverage}\n```\n"""
+        # return:  [{"role":"system", "content": system_instruction,},{"role":"user", "content": user_instruction}]
+        system_prompt = f"""You are an expert in Junit test case generation. I will give you a target focal method with its context and target test case. You must think the execution of the target test case and predict the covered code lines of the target focal method. Finally, you need to output the coverage. The coverage is the target focal method with each covered code line marked with <COVER> at the beginning of the line.\nNOTE: USE TRIPLE BACKTICKS(```) TO ENCAPSULATE THE PREDICTED CODE COVERAGE\n"""
+        # TODO: consider adding "NOTE: A TEST CASE CANNOT COVER MULTIPLE "return" STATEMETS AT THE SAME TIME.\nNOTE: A TEST CASE CANNOT COVER "if-elif-else" BRANCHES AT THE SAME TIME."
 
-        # TODO: add the reference
+        user_prompt_example = f"""EXAMPLE:\nThe target focal method is:\n```\n{example_fm}\n```\n"""
 
+        # user_prompt_example += f"""The target focal method belongs to the following java file :\n```\n{example_context}\n```\n"""
+
+        user_prompt_example += f"""The target test case which is used to test the target focal method:\n```\n{example_tc}\n```\n"""
+
+        # user_prompt_example += f"""Given the above inputs, you need to output the following target coverage, where the code lines you predict to be covered are marked with <COVER> at the beginning of the line:\n```\n{example_cov}\n```\n"""
+        user_prompt_example += f"""Given the target focal method and test case, your output should be:\n```\n{example_cov}\n```\n"""
+
+        user_prompt = f"""The target focal method is:\n```\n{target_focal_method}\n```\n"""
+
+        # user_prompt += f"""The target focal method belongs to the following java file:\n```\n{context}\n```\n"""
+
+        user_prompt += f"""The target test case is:\n```\n{target_test_case}\n```\nGiven the target focal method and test case, you need to output the target coverage, where the code lines you predict to be covered are marked with <COVER> at the beginning of the line."""
+
+        # user_prompt += f"""The following is the target test case which is used to test the target focal method:\n```\n{target_test_case}\n```\nGiven the above inputs, you need to output the target coverage, where the code lines you predict to be covered are marked with <COVER> at the beginning of the line.\nNOTE: DO NOT PROVIDE AN EXPLANATION. JUST OUTPUT THE FINAL PREDICTED CODE COVERAGE\nNOTE: A TEST CASE CANNOT COVER MULTIPLE "return" STATEMETS AT THE SAME TIME.\nNOTE: A TEST CASE CANNOT COVER "if-elif-else" BRANCHES AT THE SAME TIME."""
+
+        return [{"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt_example},
+                {"role": "user", "content": user_prompt}]
         
 
     def instruct_for_test_case_generate_given_fm(self, target_focal_method, context, reference_test_case=None, reference_focal_method=None):
