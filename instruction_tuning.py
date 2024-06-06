@@ -205,7 +205,9 @@ def training_function(script_args, training_args):
     ##########################
     if trainer.is_fsdp_enabled:
         trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
-    # trainer.save_model()
+
+    trainer.save_model()
+    
     print("Saving model to", training_args.output_dir)
     trainer.model.save_pretrained(training_args.output_dir, save_embedding_layers=True)
     
