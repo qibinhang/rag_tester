@@ -20,30 +20,42 @@ class InstructionConstructor:
             example_fm, example_context, example_tc, example_cov = self.example_target_focal_method, self.example_target_context, self.example_target_test_case, self.example_target_coverage
 
         # return:  [{"role":"system", "content": system_instruction,},{"role":"user", "content": user_instruction}]
-        system_prompt = f"""You are an expert in Junit test case generation. I will give you a target focal method with its context and target test case. You must think the execution of the target test case and predict the covered code lines of the target focal method. Finally, you need to output the coverage. The coverage is the target focal method with each covered code line marked with <COVER> at the beginning of the line.\nNOTE: USE TRIPLE BACKTICKS(```) TO ENCAPSULATE THE PREDICTED CODE COVERAGE\n"""
+        # system_prompt = f"""You are an expert in Junit test case generation. I will give you a target focal method with its context and target test case. You must think the execution of the target test case and predict the covered code lines of the target focal method. Finally, you need to output the coverage. The coverage is the target focal method with each covered code line marked with <COVER> at the beginning of the line.\nNOTE: USE TRIPLE BACKTICKS(```) TO ENCAPSULATE THE PREDICTED CODE COVERAGE\n"""
+        
         # TODO: consider adding "NOTE: A TEST CASE CANNOT COVER MULTIPLE "return" STATEMETS AT THE SAME TIME.\nNOTE: A TEST CASE CANNOT COVER "if-elif-else" BRANCHES AT THE SAME TIME."
+        system_prompt = f"""Imagine you are a terminal. I will give you a Java focal method and its Junit test case. You will execute the test case to test the focal method. During execution, you need to observe which code lines in the focal method are executed (i.e., covered). After execution, you need to output the coverage of the focal method, where each executed code line is marked with <COVER> at the beginning of the line.\nNOTE: USE TRIPLE BACKTICKS(```) TO ENCAPSULATE THE COVERAGE\n"""
 
-        user_prompt_example = f"""EXAMPLE:\nThe target focal method is:\n```\n{example_fm}\n```\n"""
+
+        user_prompt_example = f"""\nEXAMPLE INPUT:\nThe focal method is:\n```\n{example_fm}\n```\n"""
 
         # user_prompt_example += f"""The target focal method belongs to the following java file :\n```\n{example_context}\n```\n"""
 
-        user_prompt_example += f"""The target test case which is used to test the target focal method:\n```\n{example_tc}\n```\n"""
+        user_prompt_example += f"""The test case is:\n```\n{example_tc}\n```\n"""
 
         # user_prompt_example += f"""Given the above inputs, you need to output the following target coverage, where the code lines you predict to be covered are marked with <COVER> at the beginning of the line:\n```\n{example_cov}\n```\n"""
-        user_prompt_example += f"""Given the target focal method and test case, your output should be:\n```\n{example_cov}\n```\n"""
+        user_prompt_example += f"""EXAMPLE OUTPUT:\nYour output coverage is:\n```\n{example_cov}\n```\n"""
 
-        user_prompt = f"""The target focal method is:\n```\n{target_focal_method}\n```\n"""
+        user_prompt = f"""The focal method is:\n```\n{target_focal_method}\n```\n"""
 
         # user_prompt += f"""The target focal method belongs to the following java file:\n```\n{context}\n```\n"""
 
-        user_prompt += f"""The target test case is:\n```\n{target_test_case}\n```\nGiven the target focal method and test case, you need to output the target coverage, where the code lines you predict to be covered are marked with <COVER> at the beginning of the line."""
+        user_prompt += f"""The test case is:\n```\n{target_test_case}\n```\nYour output coverage is:\n"""
 
         # user_prompt += f"""The following is the target test case which is used to test the target focal method:\n```\n{target_test_case}\n```\nGiven the above inputs, you need to output the target coverage, where the code lines you predict to be covered are marked with <COVER> at the beginning of the line.\nNOTE: DO NOT PROVIDE AN EXPLANATION. JUST OUTPUT THE FINAL PREDICTED CODE COVERAGE\nNOTE: A TEST CASE CANNOT COVER MULTIPLE "return" STATEMETS AT THE SAME TIME.\nNOTE: A TEST CASE CANNOT COVER "if-elif-else" BRANCHES AT THE SAME TIME."""
 
         return [{"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt_example},
                 {"role": "user", "content": user_prompt}]
-        
+    
+    def instruct_for_coverage_predict_given_tc_for_classifier(self, target_focal_method, target_test_case):
+        system_prompt = f"""Your task is to predict which code lines in the focal method will be covered by the test case. Specifically, each code line ends with a tag <c?>. If the code line is covered, the tag should be classified as <cover>, otherwise <uncover>. You need to imagine that you have executed the test case and focal method, and then classify <c?>"""
+
+        user_prompt = f"""The test case is:\n```\n{target_test_case}\n```\n"""
+
+        user_prompt += f"""The focal method is:\n```\n{target_focal_method}\n```"""
+
+        return [{"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}]
 
     def instruct_for_test_case_generate_given_fm(self, target_focal_method, context, reference_test_case=None, reference_focal_method=None):
         system_prompt = f"""You are an expert in Junit test case generation. I will give you a target focal method, then you need to generate a JUnit test case with Junit version=4.12 and Java version=1.8. The generated test case must contain one test class and one test method and should be runnable. You must think carefully and pay attention to syntactic correctness.\n"""
