@@ -1,11 +1,12 @@
 import json
+import os
 
 
 class Dataset:
     def __init__(self, configs):
         self.configs = configs
         self.raw_data = None
-        self.coverage_data_human_labeled = None
+        self.coverage_human_labeled = None
 
     # TODO: the raw data format will be changed to # <Focal Method, Context, Test case>
     def load_raw_data(self):
@@ -23,26 +24,43 @@ class Dataset:
         self.raw_data = samples
         return samples
     
-    # TODO: check
-    def load_coverage_data_human_labeled(self):
-        # return: [<Coverage, Context, Test case>]
-        with open(self.configs.coverage_data_human_labeled_path, 'r') as f:
-            data = json.load(f)
+    def load_coverage_data(self, label_method: str):
+        assert label_method in ['human', 'model']
+        if label_method == 'human':
+            coverage_data = self._load_coverage_data(self.configs.coverage_human_labeled_dir)
+            self.coverage_human_labeled = coverage_data
+            return coverage_data
+        else:
+            raise NotImplementedError('Model labeled coverage data is not implemented yet.')
 
+    def load_unlabeled_coverage_data(self):
+        unlabeled_coverage_data = self._load_coverage_data(self.configs.coverage_data_model_unlabeled_path)
+        return unlabeled_coverage_data
+
+    def _load_coverage_data(self, coverage_dir: str):
+        # return: [<Coverage, Context, Test case>] or [<Focal method, Context, Test case>]
+        # list the files in the directory
         coverage_data = []
-        for each_focal_file_path in data:
-            each_focal_file_data = data[each_focal_file_path]
-            for each_focal_method_name in each_focal_file_data:
-                each_focal_method_data = each_focal_file_data[each_focal_method_name]
-                for each_pair in each_focal_method_data:
-                    each_test_case, each_coverage, each_context = each_pair
-                    coverage_data.append(
-                        (''.join(each_coverage).strip(), 
-                         ''.join(each_context).strip(), 
-                         ''.join(each_test_case).strip())
-                         )
+
+        file_names = os.listdir(coverage_dir)
+        for each_file_name in file_names:
+            path = os.path.join(coverage_dir, each_file_name)
+
+            with open(path, 'r') as f:
+                data = json.load(f)
+
+            for each_focal_file_path in data:
+                each_focal_file_data = data[each_focal_file_path]
+                for each_focal_method_name in each_focal_file_data:
+                    each_focal_method_data = each_focal_file_data[each_focal_method_name]
+                    for each_pair in each_focal_method_data:
+                        each_test_case, each_coverage, each_context = each_pair
+                        coverage_data.append(
+                            (''.join(each_coverage).strip(), 
+                            ''.join(each_context).strip(), 
+                            ''.join(each_test_case).strip())
+                            )
             
-        self.coverage_data_human_labeled = coverage_data
         return coverage_data
     
 
@@ -52,5 +70,5 @@ if __name__ == '__main__':
     dataset = Dataset(configs)
     # raw_data = dataset.load_raw_data()
     # print(raw_data)
-    coverage_data = dataset.load_coverage_data_human_labeled()
+    coverage_data = dataset.load_coverage_data(label_method='human')
     print(coverage_data)
