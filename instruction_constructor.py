@@ -1,3 +1,6 @@
+from typing import List
+
+
 class InstructionConstructor:
     def __init__(self):
         self.example_target_focal_method = """public static RouteImpl create(final String path, String acceptType, final Route route) {\n    if (acceptType == null) {\n        acceptType = DEFAULT_ACCEPT_TYPE;\n    }\n    return new RouteImpl(path, acceptType, route) {\n        @Override\n        public Object handle(Request request, Response response) throws Exception {\n            return route.handle(request, response);\n        }\n    };\n}"""
@@ -77,6 +80,30 @@ class InstructionConstructor:
                     {"role": "user", "content": user_prompt}]
 
         return messages
+
+
+    def instruct_for_test_case_generate_given_cov(self, target_coverage, context, references_test_case: List[str]=None, references_coverage: List[str]=None):
+        system_prompt = f"""Task: Generate a JUnit test case for a given Java focal method's coverage to ensure specific lines of code are executed. The coverage includes special tags `<COVER>` indicating the code lines that need to be executed by the test case. The generated test case must contain one test class and one test method, use JUnit version 4.12, and be compatible with Java version 1.8.\n"""
+
+        system_prompt += f"""# EXAMPLE:\n## Input: Focal Method's Coverage:\n```\n{self.example_target_coverage}\n```\n\n## Output Test Case:\n```\n{self.example_target_test_case}\n```\n"""
+
+        user_prompt = f"# Instructions:\n## Input: Focal Method's Coverage:\n```\n{target_coverage}\n```\n"
+        user_prompt += f"## The focal method belongs to the following java file:\n```\n{context}\n```\n"
+        user_prompt += f"## Instruction: You need to generate a JUnit test case to execute the code lines tagged `<COVER>` in the provided focal method's coverage.\n\n"
+        user_prompt += f"## Notes:\n- The test method should be named clearly to reflect the test scenario.\n- Ensure the test case covers all lines marked with `<COVER>`.\n- Use appropriate assertions to verify the expected behavior.\n\n"
+
+        if references_test_case is not None:
+            user_prompt += f"## References:\nHere are some referable coverage and it's corresponding test case, which might be helpful for your generation:\n"
+            user_prompt += f""
+            for i in range(len(references_test_case)):
+                user_prompt += f"### Input: Focal Method's Coverage {i+1}:\n```\n{references_coverage[i]}\n```\n\n"
+                user_prompt += f"### Output: Test Case {i+1}:\n```\n{references_test_case[i]}\n```\n"
+
+        messages = [{"role": "system", "content": system_prompt}, 
+                    {"role": "user", "content": user_prompt}]
+
+        return messages
+    
     
     def instruct_for_test_case_generate_given_coverage(target_coverage, context, reference_test_case=None, reference_coverage=None):
         pass

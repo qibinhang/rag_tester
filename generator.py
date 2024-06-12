@@ -2,13 +2,14 @@ import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from instruction_constructor import InstructionConstructor
+from typing import List
 
 
 class Generator():
     def __init__(self, configs):
         self.configs = configs
         self.tokenizer, self.model = self.prepare_llm(configs.llm_name)
-        self.get_instruction = InstructionConstructor().instruct_for_test_case_generate_given_fm
+        self.get_instruction = InstructionConstructor().instruct_for_test_case_generate_given_cov
 
     def prepare_llm(self, llm_name):
         if llm_name == 'llama_3':
@@ -40,27 +41,32 @@ class Generator():
     def finetune_llm(self, train_data, valid_data, output_dir):
         pass
 
-    def generate_test_case_using_llama3(self, target_focal_method, context, reference_test_case=None, reference_focal_method=None):
+    def generate_test_case_using_llama3(self, target_coverage, context, references_test_case: List[str]=None, references_coverage: List[str]=None):
         context_tokens = self.tokenizer.encode(context)
-        context = self.tokenizer.decode(context_tokens[:self.configs.max_context_len], skip_special_tokens=True)
-        messages = self.get_instruction(target_focal_method, context, reference_test_case, reference_focal_method)
+        if len(context_tokens) > self.configs.max_context_len:
+            print(f'[WARNING] The context length ({len(context_tokens)}) is longer than the maximum length ({self.configs.max_context_len}). truncating the context.')
+            context_tokens = context_tokens[:self.configs.max_context_len]
+            context = self.tokenizer.decode(context_tokens, skip_special_tokens=True)
 
-        if self.configs.verbose:
-            print('\n\n## System message ##')
-            print(messages[0]['content'])
-            print('\n\n## User message ##')
-            print(messages[1]['content'])
-            print('\n\n')
+        messages = self.get_instruction(target_coverage, context, references_test_case, references_coverage)
+
+        messages_tokens = self.tokenizer.encode(f"{messages[0]['content']} {messages[1]['content']}")
+        if len(messages_tokens) > self.configs.max_input_len:
+            print(f'[WARNING] The instruction length ({len(messages_tokens)}) is longer than the maximum length ({self.configs.max_input_len}). truncating the instruction (reference part).')
 
         input_ids = self.tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
             return_tensors="pt",
             truncation=True,
-            max_length=8000
+            max_length=self.configs.max_input_len
         ).to(self.model.device)
 
         if self.configs.verbose:
+            print('\n\n## System message ##')
+            print(messages[0]['content'])
+            print('\n\n## User message ##')
+            print(messages[1]['content'])
             print(f'Length of input: {input_ids.shape[-1]}')
 
         terminators = [
@@ -73,7 +79,7 @@ class Generator():
             max_new_tokens=self.configs.max_num_generated_tokens,
             eos_token_id=terminators,
             pad_token_id=self.tokenizer.eos_token_id,
-            do_sample=True,
+            do_sample=self.configs.do_sample,
             temperature=self.configs.tempurature,
             top_p=self.configs.top_p,
         )
@@ -82,14 +88,14 @@ class Generator():
 
         return generated_test_case
     
-    def generate_test_case(self, target_focal_method, context, reference_test_case=None, reference_focal_method=None):
+    def generate_test_case(self, target_coverage, context, references_test_case: List[str]=None, references_coverage: List[str]=None):
         if self.configs.llm_name in ('llama_3','llama_3:70b'):
-            generation = self.generate_test_case_using_llama3(target_focal_method, context, reference_test_case, reference_focal_method)
+            generation = self.generate_test_case_using_llama3(target_coverage, context, references_test_case, references_coverage)
         else:
             raise ValueError('Invalid LLM name')
         
         if self.configs.verbose:
-            if reference_test_case is not None:
+            if references_coverage is not None:
                 print(f'\n\n## Generated test case WITH reference ##')
             else:
                 print(f'\n\n## Generated test case WITHOUT reference ##')
@@ -98,6 +104,7 @@ class Generator():
 
         return generation
 
+    # TODO: need to modify
     def generate_all_test_cases(self, samples):
         test_cases = []
 

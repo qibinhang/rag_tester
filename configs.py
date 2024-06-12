@@ -6,22 +6,25 @@ class Configs:
         self.environment = ['charlie', 'cluster'][0]
         self.project_name = ['spark', 'HdrHistogram', 'blade-kit'][0]
         self.llm_name = ['llama_3', 'llama_3:70b'][0]
-        self.retrieval_mode = ['fm', 'tc', 'both'][2]
+        self.retrieval_mode = ['fm', 'tc', 'both'][0]
+        self.retrieval_top_k = 1
 
-        self.version = f'v0.9.3.1_mode_{self.retrieval_mode}'
-        self.version_intro = 'moving prompt construction to the instruction_constructor.py. Additionally, moving get_samples() to dataset.py.'
+        self.version = f'v0.10.1_mode_{self.retrieval_mode}'
+        self.version_intro = 'generate test cases for a given coverage. Moreover, the quality of dataset is improved.'
         
-        self.max_context_len = 1000
+        self.max_context_len = 1024
+        self.max_input_len = 3072
         self.max_num_generated_tokens = 1024
-        self.top_p = 0.0
-        self.tempurature = 0.0
+        self.do_sample = False
+        self.top_p = None
+        self.tempurature = None
         self.verbose = True
 
         self.root_dir = '/evosuite_pp' if self.environment == 'charlie' else '/home/q/qibh/Documents'
 
         # format: [{focal_file_path: list([target_focal_method, target_test_case, references])
         self.samples_path = f'{self.root_dir}/rag_tester/data/samples_with_reference/medium_cases_{self.project_name}_reformat.json'
-        self.project_dir = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/{self.project_name}'
+        self.project_dir = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test'
 
         if self.project_name == 'spark':
             self.project_test_case_base_path = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/spark/src/test/java/spark'
@@ -40,10 +43,6 @@ class Configs:
         self.test_case_save_path = f'{self.root_dir}/rag_tester/data/generated_test_cases/{self.project_name}_{self.llm_name}_processed_{self.version}.json'
 
         self.test_case_run_log_dir = os.path.abspath(f'{self.root_dir}/rag_tester/data/generated_test_cases_run_log/{self.project_name}_{self.llm_name}_{self.version}')
-
-        # self.coverage_data_human_labeled_path = f'{self.root_dir}/rag_tester/data/{self.project_name}/coverage_human_labeled.json'
-        # self.coverage_data_model_unlabeled_path = f'{self.root_dir}/rag_tester/data/{self.project_name}/coverage_model_unlabeled.json'
-        # self.coverage_data_model_labeled_path = f'{self.root_dir}/rag_tester/data/{self.project_name}/coverage_model_labeled.json'
 
         self.coverage_human_labeled_dir = f'{self.root_dir}/rag_tester/data/coverage_human_labeled'
         self.coverage_model_unlabeled_dir = f'{self.root_dir}/rag_tester/data/coverage_model_unlabeled'

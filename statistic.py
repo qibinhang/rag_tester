@@ -17,16 +17,20 @@ class Statistic():
                 human_ref_log_names.append(each_log)
             else:
                 rag_ref_log_names.append(each_log)
-        if len(no_ref_log_names) != len(human_ref_log_names):
-                raise ValueError(f'len(no_ref_log_names) != len(human_ref_log_names). {len(no_ref_log_names)} != {len(human_ref_log_names)}')
+        # if len(no_ref_log_names) != len(human_ref_log_names):
+        #         raise ValueError(f'len(no_ref_log_names) != len(human_ref_log_names). {len(no_ref_log_names)} != {len(human_ref_log_names)}')
 
-        if len(rag_ref_log_names) > 0:
-            if len(no_ref_log_names) != len(rag_ref_log_names):
-                raise ValueError(f'len(no_ref_log_names) != len(rag_ref_log_names). {len(no_ref_log_names)} != {len(rag_ref_log_names)}')
+        # if len(rag_ref_log_names) > 0:
+        #     if len(no_ref_log_names) != len(rag_ref_log_names):
+        #         raise ValueError(f'len(no_ref_log_names) != len(rag_ref_log_names). {len(no_ref_log_names)} != {len(rag_ref_log_names)}')
+        print(f'No Reference: {len(no_ref_log_names)}')
+        print(f'With Human Reference: {len(human_ref_log_names)}')
+        print(f'With RAG Reference: {len(rag_ref_log_names)}')
 
         no_ref_fail_compile, no_ref_fail_execute, no_ref_success_pass, no_ref_fail_compile_count, no_ref_fail_execute_count, no_ref_success_pass_count = self.analyze_test_case_running_log(no_ref_log_names)
 
-        human_ref_fail_compile, human_ref_fail_execute, human_ref_success_pass, human_ref_fail_compile_count, human_ref_fail_execute_count, human_ref_success_pass_count = self.analyze_test_case_running_log(human_ref_log_names)
+        if len(human_ref_log_names) > 0:
+            human_ref_fail_compile, human_ref_fail_execute, human_ref_success_pass, human_ref_fail_compile_count, human_ref_fail_execute_count, human_ref_success_pass_count = self.analyze_test_case_running_log(human_ref_log_names)
 
         if len(rag_ref_log_names) > 0:
             rag_ref_fail_compile, rag_ref_fail_execute, rag_ref_success_pass, rag_ref_fail_compile_count, rag_ref_fail_execute_count, rag_ref_success_pass_count = self.analyze_test_case_running_log(rag_ref_log_names)
@@ -34,7 +38,9 @@ class Statistic():
         print('\nSummary')
         print('-----------------------------------')
         print(f'[No Reference]\nFail Compile: {no_ref_fail_compile_count}, Fail Execute: {no_ref_fail_execute_count}, Success Pass: {no_ref_success_pass_count}({len(no_ref_success_pass)})\n')
-        print(f'[With Human Reference]\nFail Compile: {human_ref_fail_compile_count}, Fail Execute: {human_ref_fail_execute_count}, Success Pass: {human_ref_success_pass_count}({len(human_ref_success_pass)})\n')
+
+        if len(human_ref_log_names) > 0:
+            print(f'[With Human Reference]\nFail Compile: {human_ref_fail_compile_count}, Fail Execute: {human_ref_fail_execute_count}, Success Pass: {human_ref_success_pass_count}({len(human_ref_success_pass)})\n')
 
         if len(rag_ref_log_names) > 0:
             print(f'[With RAG Reference]\nFail Compile: {rag_ref_fail_compile_count}, Fail Execute: {rag_ref_fail_execute_count}, Success Pass: {rag_ref_success_pass_count}({len(rag_ref_success_pass)})')
@@ -42,7 +48,9 @@ class Statistic():
 
         print('Detailed information:')
         print(f'[No Reference]\nFail Compile: {no_ref_fail_compile}\n\nFail Execute: {no_ref_fail_execute}\n\nSuccess Pass: {no_ref_success_pass}\n\n')
-        print(f'[With Human Reference]\nFail Compile: {human_ref_fail_compile}\n\nFail Execute: {human_ref_fail_execute}\n\nSuccess Pass: {human_ref_success_pass}\n\n')
+        
+        if len(human_ref_log_names) > 0:
+            print(f'[With Human Reference]\nFail Compile: {human_ref_fail_compile}\n\nFail Execute: {human_ref_fail_execute}\n\nSuccess Pass: {human_ref_success_pass}\n\n')
 
         if len(rag_ref_log_names) > 0:
             print(f'[With RAG Reference]\nFail Compile: {rag_ref_fail_compile}\n\nFail Execute: {rag_ref_fail_execute}\n\nSuccess Pass: {rag_ref_success_pass}\n\n')
@@ -87,26 +95,35 @@ class Statistic():
         with open(self.configs.test_case_save_path, 'r') as f:
             generated_test_cases = json.load(f)
 
-        test_case_no_ref_list, test_case_with_ref_list, test_case_with_rag_ref_list = [], [], []
+        test_case_no_ref_list, test_case_with_human_ref, test_case_with_rag_ref_list = [], [], []
         target_test_case_list = []
         for each_test_case in generated_test_cases:
-            focal_method_path, test_case_no_ref_path, test_case_no_ref, test_case_with_ref_path, test_case_with_ref, test_case_with_rag_ref_path, test_case_with_rag_ref, target_test_case = each_test_case
-            
+            target_test_case = each_test_case['target_test_case']
+
+            test_case_no_ref = each_test_case['generation_no_ref']
             test_case_no_ref_list.append(test_case_no_ref)
-            test_case_with_ref_list.append(test_case_with_ref)
+
+            test_case_with_rag_ref = each_test_case['generation_with_rag_ref']
             test_case_with_rag_ref_list.append(test_case_with_rag_ref)
+
+            if each_test_case['generation_with_human_ref'] is not None:
+                test_case_with_human_ref = each_test_case['generation_with_human_ref']
+                test_case_with_human_ref.append(test_case_with_human_ref)
 
             target_test_case_list.append(target_test_case)
         
         bleu_no_ref = self.cal_bleu(test_case_no_ref_list, target_test_case_list)
-        bleu_with_ref = self.cal_bleu(test_case_with_ref_list, target_test_case_list)
-        bleu_with_rag_ref = self.cal_bleu(test_case_with_rag_ref_list, target_test_case_list)
-
         print(f'BLEU-4 without reference: {bleu_no_ref:.4f}')
-        print(f'BLEU-4 with human reference: {bleu_with_ref:.4f}')
+
+        bleu_with_huamn_ref = None
+        if len(test_case_with_human_ref) > 0:
+            bleu_with_huamn_ref = self.cal_bleu(test_case_with_human_ref, target_test_case_list)
+            print(f'BLEU-4 with human reference: {bleu_with_huamn_ref:.4f}')
+
+        bleu_with_rag_ref = self.cal_bleu(test_case_with_rag_ref_list, target_test_case_list)
         print(f'BLEU-4 with RAG reference: {bleu_with_rag_ref:.4f}')
 
-        return bleu_no_ref, bleu_with_ref, bleu_with_rag_ref
+        return bleu_no_ref, bleu_with_huamn_ref, bleu_with_rag_ref
 
     def cal_bleu(self, generated_test_cases, target_test_cases):
         bleu = evaluate.load('bleu')

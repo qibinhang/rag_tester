@@ -3,14 +3,17 @@ from rank_bm25 import BM25Okapi
 
 
 class Retriever():
-    def __init__(self, corpus_fm: List[str], corpus_tc: List[str]) -> None:
+    def __init__(self, corpus_cov: List[str], corpus_fm: List[str], corpus_tc: List[str]) -> None:
         super().__init__()
+        self.corpus_cov = corpus_cov
         self.corpus_fm = corpus_fm
         self.corpus_tc = corpus_tc
         self.corpus_fm_base = [doc.split() for doc in corpus_fm]
         self.corpus_tc_base = [doc.split() for doc in corpus_tc]
+        self.corpus_cov_base = [doc.split() for doc in corpus_cov]
         self.bm25_fm = BM25Okapi(self.corpus_fm_base)
         self.bm25_tc = BM25Okapi(self.corpus_tc_base)
+        self.bm25_cov = BM25Okapi(self.corpus_cov_base)
 
     def retrieve(self, target_fm: str, top_k: int = 3, mode: str = 'fm'):
         assert mode in ['fm', 'tc', 'both']
@@ -26,7 +29,7 @@ class Retriever():
             scores = [0.5 * scores_fm[i] + 0.5 * scores_tc[i] for i in range(len(scores_fm))]
             top_k_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
 
-        return [self.corpus_fm[i] for i in top_k_indices], [self.corpus_tc[i] for i in top_k_indices]
+        return [self.corpus_cov[i] for i in top_k_indices], [self.corpus_fm[i] for i in top_k_indices], [self.corpus_tc[i] for i in top_k_indices]
     
 
 if __name__ == "__main__":

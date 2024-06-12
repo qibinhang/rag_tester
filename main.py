@@ -23,73 +23,47 @@ def generate_all_test_cases(generator):
 def pipeline_for_generation_with_rag():
     # load target focal methods
     dataset = Dataset(configs)
-    raw_samples = dataset.load_raw_data()
-    samples = []
-    for each_sample in raw_samples:
-        # each sample: (focal_file_path, target_focal_method, target_test_case, references)
-        focal_file_path = each_sample[0]
-        target_focal_method, target_test_case, reference_test_cases = each_sample[1], each_sample[2], each_sample[3]
-        best_reference_focal_method = reference_test_cases[0][0]
-        best_reference_test_case = reference_test_cases[0][1]
-
-        with open(focal_file_path, 'r') as f:
-                context = f.read()
-
-        # remove the copyright.
-        context_lines = context.split('\n')
-        for i, line in enumerate(context_lines):
-            line = line.strip()
-            if line.startswith('package') and line.endswith(';'):
-                context = '\n'.join(context_lines[i:])
-                break
-        
-        samples.append((focal_file_path, target_focal_method, context, target_test_case, best_reference_test_case, best_reference_focal_method))
-    
-    # load corpus
-    # TODO remove duplicated pairs
-    with open(project_corpus_path, 'r') as f:
-        corpus = json.load(f)
-    
-    corpus_fp, corpus_mn = [], []
-    corpus_fm, corpus_tc = [], []
-    for each_pair in corpus:
-        each_file_path, method_name, test_case, focal_method = each_pair
-        corpus_fp.append(each_file_path)
-        corpus_mn.append(method_name)
-        corpus_fm.append(focal_method)
-        corpus_tc.append(test_case)
+    coverage_data = dataset.load_coverage_data_jacoco()
 
     # generating test case
     generated_test_cases = []  # list[(focal_file_path, generation_no_ref, generation_with_human_ref, generation_with_rag_ref)]
     generator = Generator(configs)
 
-    for each_sample in tqdm(samples, ncols=80, desc='Generating test cases'):
-        focal_file_path, target_focal_method, context, target_test_case, best_reference_test_case, best_reference_focal_method = each_sample
+    for target_pair_idx, each_target_pair in tqdm(enumerate(coverage_data), total=len(coverage_data), ncols=80, desc='Generating test cases'):
+        focal_file_path, target_focal_method, target_coverage, context, target_test_case, references_human = each_target_pair.focal_file_path, each_target_pair.focal_method, each_target_pair.coverage, each_target_pair.context, each_target_pair.test_case, each_target_pair.references
 
         # prepare retriever
-        # remove the target focal method from the corpus
-        target_focal_method_name = target_focal_method.split('(')[0].split()[-1]
-
-        corpus_fm_clean, corpus_tc_clean = [], []
-        clean_corpus = list(filter(lambda x: x[0] != target_focal_method_name, zip(corpus_mn, corpus_fm, corpus_tc)))
-        for each in clean_corpus:
-            corpus_fm_clean.append(each[1])
-            corpus_tc_clean.append(each[2])
+        # prepare corpus. remove the target pair from the corpus
+        coverage_data_for_corpus = coverage_data[:target_pair_idx] + coverage_data[target_pair_idx+1:]
+        corpus_cov, corpus_fm, corpus_tc = [], [], []
+        for each_pair_cor in coverage_data_for_corpus:
+            corpus_cov.append(each_pair_cor.coverage)
+            corpus_fm.append(each_pair_cor.focal_method)
+            corpus_tc.append(each_pair_cor.test_case)
             
-        retriever = RetrieverBM25(corpus_fm_clean, corpus_tc_clean)
-        reference_focal_methods, reference_test_cases = retriever.retrieve(target_fm=target_focal_method, top_k=3, mode=retrieval_mode)
+        retriever = RetrieverBM25(corpus_cov, corpus_fm, corpus_tc)
+        references_cov_rag, references_fm_rag, references_tc_rag = retriever.retrieve(target_fm=target_focal_method, top_k=configs.retrieval_top_k, mode=configs.retrieval_mode)
 
         # generate test cases
         # with no reference
-        generation_no_ref = generator.generate_test_case(target_focal_method, context)
+        generation_no_ref = generator.generate_test_case(target_coverage, context)
 
+        # TODO: check the reference_human
         # with human reference
-        generation_with_human_ref = generator.generate_test_case(target_focal_method, context, best_reference_test_case, best_reference_focal_method)
+        generation_with_human_ref = None
+        if references_human is not None:
+            generation_with_human_ref = generator.generate_test_case(target_coverage, context, references_test_case=references_human[0], references_coverage=references_human[1])
 
         # with rag reference
-        generation_with_rag_ref = generator.generate_test_case(target_focal_method, context, reference_test_cases[0], reference_focal_methods[0])
+        generation_with_rag_ref = generator.generate_test_case(target_coverage, context, references_test_case=references_tc_rag, references_coverage=references_cov_rag)
 
-        generated_test_cases.append((focal_file_path, generation_no_ref, generation_with_human_ref, generation_with_rag_ref, target_test_case))
+        generated_test_cases.append({
+            'focal_file_path': focal_file_path, 
+            'generation_no_ref': generation_no_ref, 
+            'generation_with_human_ref': generation_with_human_ref, 
+            'generation_with_rag_ref': generation_with_rag_ref,
+            'target_test_case': target_test_case
+            })
     
     os.makedirs(os.path.dirname(configs.test_case_initial_gen_save_path), exist_ok=True)
     with open(configs.test_case_initial_gen_save_path, 'w') as f:
@@ -135,31 +109,47 @@ def process_generated_test_cases():
     with open(configs.test_case_initial_gen_save_path, 'r') as f:
         test_cases = json.load(f)
 
-    # the previous version's saved test cases do not include target_test_case. the new version added target_test_case.
-    assert len(test_cases[0]) == 5
-
     # save the generated test cases
     saved_test_cases = []  # will be saved to a json file
     for each_test_case in tqdm(test_cases, ncols=80, desc='Processing generated test cases'):
-        focal_method_path = each_test_case[0]
-        focal_case_dir = focal_method_path[:focal_method_path.rfind('/')]
-        # test_case_name = focal_method_path.split('/')[-1].split('.')[0]
+        focal_file_path = each_test_case['focal_file_path']
+        focal_case_dir = focal_file_path[:focal_file_path.rfind('/')]
+        # test_case_name = focal_file_path.split('/')[-1].split('.')[0]
         test_case_dir = focal_case_dir.replace('/main/', '/test/')
 
-        test_case_no_ref, class_name_no_ref = _process(each_test_case[1])
-        test_case_with_ref, class_name_with_ref = _process(each_test_case[2])
-        test_case_with_rag_ref, class_name_with_rag_ref = _process(each_test_case[3])
-        if test_case_no_ref is None or test_case_with_ref is None or test_case_with_rag_ref is None:
-            print(f'[WARNING] Abnormal test case: {focal_method_path}') 
+        test_case_no_ref, class_name_no_ref = _process(each_test_case['generation_no_ref'])
+        if test_case_no_ref is None:
+            print(f'[WARNING] Abnormal test case: {focal_file_path}') 
             continue
 
-        test_case_no_ref_path = f'{test_case_dir}/{class_name_no_ref}.java'
-        test_case_with_ref_path = f'{test_case_dir}/{class_name_with_ref}.java'
-        test_case_with_rag_ref_path = f'{test_case_dir}/{class_name_with_rag_ref}.java'
+        test_case_with_rag_ref, class_name_with_rag_ref = _process(each_test_case['generation_with_rag_ref'])
+        if test_case_with_rag_ref is None:
+            print(f'[WARNING] Abnormal test case: {focal_file_path}') 
+            continue
 
-        target_test_case = each_test_case[4]
+        test_case_with_huam_ref, class_name_with_human_ref = None, None
+        if each_test_case['generation_with_human_ref'] is not None:
+            test_case_with_huam_ref, class_name_with_human_ref = _process(each_test_case['generation_with_human_ref'])
+            if test_case_with_huam_ref is None:
+                print(f'[WARNING] Abnormal test case: {focal_file_path}') 
+                continue
+
+        test_case_no_ref_path = f'{test_case_dir}/{class_name_no_ref}.java'
+        test_case_with_rag_ref_path = f'{test_case_dir}/{class_name_with_rag_ref}.java'
+        test_case_with_huam_ref_path = f'{test_case_dir}/{class_name_with_human_ref}.java' if test_case_with_huam_ref is not None else None
+
+        target_test_case = each_test_case['target_test_case']
         
-        saved_test_cases.append((focal_method_path, test_case_no_ref_path, test_case_no_ref, test_case_with_ref_path, test_case_with_ref, test_case_with_rag_ref_path, test_case_with_rag_ref, target_test_case))
+        saved_test_cases.append({
+            'focal_file_path': focal_file_path, 
+            'generation_no_ref_path': test_case_no_ref_path, 
+            'generation_no_ref': test_case_no_ref,
+            'generation_with_human_ref_path': test_case_with_huam_ref_path,
+            'generation_with_human_ref': test_case_with_huam_ref,
+            'generation_with_rag_ref_path': test_case_with_rag_ref_path,
+            'generation_with_rag_ref': test_case_with_rag_ref,
+            'target_test_case': target_test_case
+        })
 
     os.makedirs(os.path.dirname(configs.test_case_save_path), exist_ok=True)
     with open(configs.test_case_save_path, 'w') as f:
@@ -187,47 +177,28 @@ def main():
     # generate all test cases with rag (BM25)
     pipeline_for_generation_with_rag()
     
-    # process the generated test cases
-    process_generated_test_cases()
+    # # process the generated test cases
+    # process_generated_test_cases()
 
-    # run all test cases
-    test_case_runner = TestCaseRunner(configs)
-    run_all_test_cases(test_case_runner)
+    # # run all test cases
+    # test_case_runner = TestCaseRunner(configs)
+    # run_all_test_cases(test_case_runner)
     
-    # statistics of test case execution
-    statistic = Statistic(configs)
-    get_statistics(statistic)
+    # # statistics of test case execution
+    # statistic = Statistic(configs)
+    # get_statistics(statistic)
 
 
 if __name__ == '__main__':
-    environment = ['charlie', 'cluster'][0]
-    project_name = ['spark', 'HdrHistogram'][0]
-    llm_name = ['llama_3', 'llama_3:70b'][0]
-    retrieval_mode = ['fm', 'tc', 'both'][2]
-
-    version = f'v0.9.3.1_mode_{retrieval_mode}'
-    version_intro = 'moving prompt construction to the instruction_constructor.py. Additionally, moving get_samples() to dataset.py.'
-    configs = Configs(project_name, environment, llm_name, version)
-    
-    configs.max_context_len = 1000
-    configs.max_num_generated_tokens = 1024
-    configs.top_p = 0.95
-    configs.tempurature = 0.1
-    configs.verbose = True
-
-    configs.llm_name = llm_name
-    configs.version = version
-    configs.retrieval_mode = retrieval_mode
-    configs.version_intro = version_intro
-
+    configs = Configs()
     print(f'Configs:\n{configs.__dict__}\n\n')
 
-    print(f"Processing {project_name}...\n\n")
+    print(f"Processing {configs.project_name}...\n\n")
     
     os.makedirs(configs.test_case_run_log_dir, exist_ok=True)
 
     # TEST
-    project_corpus_path = f'{configs.root_dir}/rag_tester/data/raw_data/{project_name}_valid_pairs.json'
+    project_corpus_path = f'{configs.root_dir}/rag_tester/data/raw_data/{configs.project_name}_valid_pairs.json'
     #
 
     main()

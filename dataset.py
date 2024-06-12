@@ -1,5 +1,7 @@
 import json
 import os
+from collections import namedtuple
+CoveragePair = namedtuple('CoveragePair', ['project_name', 'focal_file_path', 'focal_method_name', 'coverage', 'focal_method', 'context', 'test_case', 'references'])
 
 
 class Dataset:
@@ -7,6 +9,32 @@ class Dataset:
         self.configs = configs
         self.raw_data = None
         self.coverage_human_labeled = None
+
+    # TODO: add the references: [[tc1, tc2, ...], [cov1, cov2, ...]]
+    def load_coverage_data_jacoco(self):
+        coverage_data = []
+        path = os.path.join(self.configs.coverage_human_labeled_dir, f'{self.configs.project_name}.json')
+        with open(path, 'r') as f:
+            data = json.load(f)
+        for each_focal_file_path, coverages in data.items():
+            for each_fm_name, tc_cov_pairs in coverages.items():
+                for each_pair in tc_cov_pairs:
+                    tc, cov, context = each_pair
+                    fm = ''.join(cov).replace('<COVER>', '')
+
+                    coverage_pair = CoveragePair(
+                        project_name=self.configs.project_name, 
+                        focal_file_path=each_focal_file_path, 
+                        focal_method=fm, 
+                        coverage=''.join(cov), 
+                        context=''.join(context), 
+                        test_case=''.join(tc), 
+                        focal_method_name=each_fm_name, 
+                        references=None
+                    )
+
+                    coverage_data.append(coverage_pair)
+        return coverage_data
 
     # TODO: the raw data format will be changed to # <Focal Method, Context, Test case>
     def load_raw_data(self):
