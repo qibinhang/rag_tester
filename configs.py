@@ -4,13 +4,13 @@ import os
 class Configs:
     def __init__(self) -> None:
         self.environment = ['charlie', 'cluster'][0]
-        self.project_name = ['spark', 'HdrHistogram', 'blade-kit'][0]
+        self.project_name = ['spark', 'HdrHistogram', 'blade/blade-kit', 'hutool/hutool-core'][2]
         self.llm_name = ['llama_3', 'llama_3:70b'][0]
         self.retrieval_mode = ['fm', 'tc', 'both'][0]
         self.retrieval_top_k = 1
 
-        self.version = f'v0.10.1_mode_{self.retrieval_mode}'
-        self.version_intro = 'generate test cases for a given coverage. Moreover, the quality of dataset is improved.'
+        self.version = f'v0.11.0_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
+        self.version_intro = 'analyze the coverage of generated test case and compare it with the desired coverage.'
         
         self.max_context_len = 1024
         self.max_input_len = 3072
@@ -29,9 +29,11 @@ class Configs:
         if self.project_name == 'spark':
             self.project_test_case_base_path = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/spark/src/test/java/spark'
         elif self.project_name == 'HdrHistogram':
-            self.project_test_case_base_path = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/HdrHistogram/src/test/java/org/HdrHistogram'
-        elif self.project_name == 'blade-kit':
-            print(f'Warning: {self.project_name} does not specify the test case base path.')
+            self.project_test_case_base_path = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/HdrHistogram/src/test/java/org'
+        elif self.project_name == 'blade/blade-kit':
+            self.project_test_case_base_path = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/blade/blade-kit/src/test/java/com'
+        elif self.project_name == 'hutool/hutool-core':
+            self.project_test_case_base_path = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/hutool/hutool-core/src/test/java/cn'
         else:
             raise ValueError('Invalid project name')
         
@@ -43,6 +45,8 @@ class Configs:
         self.test_case_save_path = f'{self.root_dir}/rag_tester/data/generated_test_cases/{self.project_name}_{self.llm_name}_processed_{self.version}.json'
 
         self.test_case_run_log_dir = os.path.abspath(f'{self.root_dir}/rag_tester/data/generated_test_cases_run_log/{self.project_name}_{self.llm_name}_{self.version}')
+
+        self.test_case_coverage_save_path = f'{self.root_dir}/rag_tester/data/generated_test_cases_coverage/{self.project_name}_{self.llm_name}_{self.version}.json'
 
         self.coverage_human_labeled_dir = f'{self.root_dir}/rag_tester/data/coverage_human_labeled'
         self.coverage_model_unlabeled_dir = f'{self.root_dir}/rag_tester/data/coverage_model_unlabeled'

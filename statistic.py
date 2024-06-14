@@ -131,3 +131,101 @@ class Statistic():
         bleu_4 = bleu_score['precisions'][3]
 
         return bleu_4
+    
+    def analyze_coverage(self, is_ref, n_cover_line_threshold: int=1):
+        assert is_ref in ['no_ref', 'human_ref', 'rag_ref']
+        assert n_cover_line_threshold > 0
+        print(f'\n\nCoverage Analysis: = {is_ref} & Threshold {n_cover_line_threshold} =\n')  
+
+        with open(self.configs.test_case_coverage_save_path, 'r') as f:
+            total_coverage_infos = json.load(f)
+
+        coverage_infos = dict()
+        for test_case_running_log_name, cov_info in total_coverage_infos.items():
+            if is_ref not in test_case_running_log_name:
+                continue
+            
+            target_focal_method_coverage = cov_info['target_coverage']
+            if target_focal_method_coverage.count('<COVER>') < n_cover_line_threshold:
+                continue
+
+            coverage_infos[test_case_running_log_name] = cov_info
+
+        if len(coverage_infos) == 0:
+            print(f'No target coverage has at least {n_cover_line_threshold} covered lines.')
+            return
+
+        exact_match_cases, fully_cover_cases, cover_ratio_list = [], [], []
+        for test_case_running_log_name, cov_info in coverage_infos.items():
+            target_focal_method_coverage = cov_info['target_coverage']
+            focal_file_coverage = cov_info['focal_file_coverage']
+            focal_method_name = cov_info['focal_method_name']
+            focal_method_name = focal_method_name.split('::::')[1]
+            
+            generated_focal_method_coverage = self.get_generated_focal_method_coverage(focal_file_coverage, target_focal_method_coverage, focal_method_name)
+
+            is_exact_match, is_fully_cover, cover_ratio = self.eval_generated_coverage(generated_focal_method_coverage, target_focal_method_coverage)
+
+            exact_match_cases.append(is_exact_match)
+            fully_cover_cases.append(is_fully_cover)
+            cover_ratio_list.append(cover_ratio)
+
+        avg_exact_match = sum(exact_match_cases) / len(exact_match_cases)
+        avg_cover = sum(fully_cover_cases) / len(fully_cover_cases)
+        avg_cover_ratio = sum(cover_ratio_list) / len(cover_ratio_list)
+        
+        print(f'Exact Match: {avg_exact_match:.2%} ({sum(exact_match_cases)}/{len(exact_match_cases)})')
+        print(f'Fully Cover: {avg_cover:.2%} ({sum(fully_cover_cases)}/{len(fully_cover_cases)})')
+        print(f'Cover Ratio: {avg_cover_ratio:.2%}')
+    
+    def get_generated_focal_method_coverage(self, focal_file_coverage, target_coverage, focal_method_name):
+        focal_file = focal_file_coverage.replace('<COVER>', '')
+        focal_method = target_coverage.replace('<COVER>', '')
+        focal_file_lines = focal_file.split('\n')
+        focal_method_lines = focal_method.split('\n')
+
+        possible_fm_start_indices = []
+        for ff_line_idx, ff_line in enumerate(focal_file_lines):
+            if ff_line.strip() == focal_method_lines[0].strip():
+                possible_fm_start_indices.append(ff_line_idx)
+
+        if len(possible_fm_start_indices) != 1:
+            print(f'focal_method_name: {focal_method_name}')
+            print(f'focal_file_coverage: {focal_file_coverage}')
+            print(f'possible_fm_start_indices: {possible_fm_start_indices}')
+            print(f'target_coverage: {target_coverage}')
+            raise ValueError(f'len(possible_fm_start_indices) != 1. {len(possible_fm_start_indices)}')
+        
+        possible_gen_fm_cov = focal_file_coverage.split('\n')[possible_fm_start_indices[0]: possible_fm_start_indices[0]+len(focal_method_lines)]
+        possible_gen_fm_cov = '\n'.join(possible_gen_fm_cov)
+        
+        # Check again
+        possible_fm_lines = possible_gen_fm_cov.replace('<COVER>', '').split('\n')
+        for line_idx in range(len(possible_fm_lines)):
+            if possible_fm_lines[line_idx].strip() != focal_method_lines[line_idx].strip():
+                raise ValueError(f'possible_fm != focal_method.\nPossible_fm:\n{possible_fm_lines}\n\n\nFocal_method:\n{focal_method_lines}\n')
+
+        return possible_gen_fm_cov
+    
+    def eval_generated_coverage(self, generated_focal_method_coverage, target_focal_method_coverage):
+        covered_lines_generated = []
+        for line_idx, line in enumerate(generated_focal_method_coverage.split('\n')):
+            if '<COVER>' in line:
+                covered_lines_generated.append(line_idx)
+
+        covered_lines_target = []
+        for line_idx, line in enumerate(target_focal_method_coverage.split('\n')):
+            if '<COVER>' in line:
+                covered_lines_target.append(line_idx)
+
+        is_exact_match = 1 if covered_lines_generated == covered_lines_target else 0
+
+        covered_lines_set_generated, covered_lines_set_target = set(covered_lines_generated), set(covered_lines_target)
+        is_fully_cover = 1 if covered_lines_set_generated >= covered_lines_set_target else 0
+
+        cover_ratio = len(covered_lines_set_generated & covered_lines_set_target) / len(covered_lines_set_target)
+
+        return is_exact_match, is_fully_cover, cover_ratio
+            
+
+        

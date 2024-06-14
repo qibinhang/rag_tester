@@ -90,7 +90,7 @@ class InstructionConstructor:
         user_prompt = f"# Instructions:\n## Input: Focal Method's Coverage:\n```\n{target_coverage}\n```\n"
         user_prompt += f"## The focal method belongs to the following java file:\n```\n{context}\n```\n"
         user_prompt += f"## Instruction: You need to generate a JUnit test case to execute the code lines tagged `<COVER>` in the provided focal method's coverage.\n\n"
-        user_prompt += f"## Notes:\n- The test method should be named clearly to reflect the test scenario.\n- Ensure the test case covers all lines marked with `<COVER>`.\n- Use appropriate assertions to verify the expected behavior.\n\n"
+        user_prompt += f"## Notes:\n- Only one test method in the generated test case.\n- The test method should be named clearly to reflect the test scenario.\n- Ensure the test case covers all lines marked with `<COVER>`.\n- Use appropriate assertions to verify the expected behavior.\n\n"
 
         if references_test_case is not None:
             user_prompt += f"## References:\nHere are some referable coverage and it's corresponding test case, which might be helpful for your generation:\n"

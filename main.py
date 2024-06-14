@@ -30,7 +30,14 @@ def pipeline_for_generation_with_rag():
     generator = Generator(configs)
 
     for target_pair_idx, each_target_pair in tqdm(enumerate(coverage_data), total=len(coverage_data), ncols=80, desc='Generating test cases'):
-        focal_file_path, target_focal_method, target_coverage, context, target_test_case, references_human = each_target_pair.focal_file_path, each_target_pair.focal_method, each_target_pair.coverage, each_target_pair.context, each_target_pair.test_case, each_target_pair.references
+        project_name = each_target_pair.project_name
+        focal_file_path = each_target_pair.focal_file_path
+        focal_method_name = each_target_pair.focal_method_name
+        target_focal_method = each_target_pair.focal_method
+        target_coverage = each_target_pair.coverage
+        context = each_target_pair.context
+        target_test_case = each_target_pair.test_case
+        references_human = each_target_pair.references
 
         # prepare retriever
         # prepare corpus. remove the target pair from the corpus
@@ -58,10 +65,13 @@ def pipeline_for_generation_with_rag():
         generation_with_rag_ref = generator.generate_test_case(target_coverage, context, references_test_case=references_tc_rag, references_coverage=references_cov_rag)
 
         generated_test_cases.append({
+            'project_name': project_name,
             'focal_file_path': focal_file_path, 
+            'focal_method_name': focal_method_name,
             'generation_no_ref': generation_no_ref, 
             'generation_with_human_ref': generation_with_human_ref, 
             'generation_with_rag_ref': generation_with_rag_ref,
+            'target_coverage': target_coverage,
             'target_test_case': target_test_case
             })
     
@@ -77,7 +87,7 @@ def process_generated_test_cases():
             result = re.findall(r'```\n(.*?)```', init_generation, re.DOTALL)
         if len(result) == 0:
             print('[WARNING] Abnormal generated test case:\n', init_generation, '\n\n')
-            return None
+            return None, None
 
         processed_test_case = None
         for each_code in result:
@@ -86,7 +96,7 @@ def process_generated_test_cases():
                 break
         if processed_test_case is None:
             print('[WARNING] Abnormal generated test case:\n', init_generation, '\n\n')
-            return None
+            return None, None
         
         # get the class name of the test case
         class_name = re.search(r'\sclass\s+(.+?)\s', processed_test_case)
@@ -138,17 +148,18 @@ def process_generated_test_cases():
         test_case_with_rag_ref_path = f'{test_case_dir}/{class_name_with_rag_ref}.java'
         test_case_with_huam_ref_path = f'{test_case_dir}/{class_name_with_human_ref}.java' if test_case_with_huam_ref is not None else None
 
-        target_test_case = each_test_case['target_test_case']
-        
         saved_test_cases.append({
+            'project_name': each_test_case['project_name'],
             'focal_file_path': focal_file_path, 
+            'focal_method_name': each_test_case['focal_method_name'],
             'generation_no_ref_path': test_case_no_ref_path, 
             'generation_no_ref': test_case_no_ref,
             'generation_with_human_ref_path': test_case_with_huam_ref_path,
             'generation_with_human_ref': test_case_with_huam_ref,
             'generation_with_rag_ref_path': test_case_with_rag_ref_path,
             'generation_with_rag_ref': test_case_with_rag_ref,
-            'target_test_case': target_test_case
+            'target_coverage': each_test_case['target_coverage'],
+            'target_test_case': each_test_case['target_test_case']
         })
 
     os.makedirs(os.path.dirname(configs.test_case_save_path), exist_ok=True)
@@ -168,6 +179,13 @@ def get_statistics(statistic):
     statistic.analyze_test_case_pass()
     statistic.cal_bleu_for_saved_file()
 
+    statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=1)
+    statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=1)
+    statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=2)
+    statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=2)
+    statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=3)
+    statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=3)
+
 
 def main():
     # generate all test cases without rag
@@ -177,16 +195,16 @@ def main():
     # generate all test cases with rag (BM25)
     pipeline_for_generation_with_rag()
     
-    # # process the generated test cases
-    # process_generated_test_cases()
+    # process the generated test cases
+    process_generated_test_cases()
 
-    # # run all test cases
-    # test_case_runner = TestCaseRunner(configs)
-    # run_all_test_cases(test_case_runner)
+    # run all test cases
+    test_case_runner = TestCaseRunner(configs)
+    run_all_test_cases(test_case_runner)
     
-    # # statistics of test case execution
-    # statistic = Statistic(configs)
-    # get_statistics(statistic)
+    # statistics of test case execution
+    statistic = Statistic(configs)
+    get_statistics(statistic)
 
 
 if __name__ == '__main__':
@@ -196,10 +214,6 @@ if __name__ == '__main__':
     print(f"Processing {configs.project_name}...\n\n")
     
     os.makedirs(configs.test_case_run_log_dir, exist_ok=True)
-
-    # TEST
-    project_corpus_path = f'{configs.root_dir}/rag_tester/data/raw_data/{configs.project_name}_valid_pairs.json'
-    #
 
     main()
     

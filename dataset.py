@@ -12,8 +12,12 @@ class Dataset:
 
     # TODO: add the references: [[tc1, tc2, ...], [cov1, cov2, ...]]
     def load_coverage_data_jacoco(self):
-        coverage_data = []
         path = os.path.join(self.configs.coverage_human_labeled_dir, f'{self.configs.project_name}.json')
+        coverage_data = self._load_coverage_data_jacoco(path)
+        return coverage_data
+
+    def _load_coverage_data_jacoco(self, path: str):
+        coverage_data = []
         with open(path, 'r') as f:
             data = json.load(f)
         for each_focal_file_path, coverages in data.items():
@@ -32,7 +36,6 @@ class Dataset:
                         focal_method_name=each_fm_name, 
                         references=None
                     )
-
                     coverage_data.append(coverage_pair)
         return coverage_data
 
