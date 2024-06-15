@@ -67,9 +67,7 @@ class TestCaseRunner():
 
     def run_test_case(self, test_case_path, focal_file_path, is_ref):
         assert is_ref in ('no', 'human', 'rag')
-        test_case_relative_path = test_case_path.replace(f'{self.configs.project_test_case_base_path}/', '')
-
-        # test_case_relative_path = test_case_path.replace(self.configs.project_test_case_base_path, '')
+        test_case_relative_path = test_case_path.split('/src/test/java/')[1]
         test_case_relative_path = test_case_relative_path.replace('.java', '')
         test_case_relative_path = test_case_relative_path.replace('/', '.')
 
@@ -90,11 +88,10 @@ class TestCaseRunner():
 
     def get_focal_file_coverage(self, focal_file_path, test_case_path):
         base_path = f'{self.configs.project_dir}/{self.configs.project_name}'
-        org_name = self.configs.project_test_case_base_path.split('src/test/java/')[1].split('/')[0]
+        org_name = test_case_path.split('/src/test/java/')[1].split('/')[0]
         test_suffix = 'Test'
 
-        test_case_relative_path = test_case_path.replace(f'{self.configs.project_test_case_base_path}/', '')
-
+        test_case_relative_path = test_case_path.split('/src/test/java/')[1]
         test_case_relative_path = test_case_relative_path.replace('.java', '')
         test_case_relative_path = test_case_relative_path.replace('/', '.')
 
