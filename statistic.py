@@ -179,14 +179,14 @@ class Statistic():
         print(f'Cover Ratio: {avg_cover_ratio:.2%}')
     
     def get_generated_focal_method_coverage(self, focal_file_coverage, target_coverage, focal_method_name):
-        focal_file = focal_file_coverage.replace('<COVER>', '')
-        focal_method = target_coverage.replace('<COVER>', '')
+        focal_file = focal_file_coverage.strip().replace('<COVER>', '')
+        focal_method = target_coverage.strip().replace('<COVER>', '')
         focal_file_lines = focal_file.split('\n')
         focal_method_lines = focal_method.split('\n')
 
         possible_fm_start_indices = []
-        for ff_line_idx, ff_line in enumerate(focal_file_lines):
-            if ff_line.strip() == focal_method_lines[0].strip():
+        for ff_line_idx in range(len(focal_file_lines)):
+            if focal_file_lines[ff_line_idx].strip() == focal_method_lines[0].strip() and focal_file_lines[ff_line_idx+1].strip() == focal_method_lines[1].strip():
                 possible_fm_start_indices.append(ff_line_idx)
 
         if len(possible_fm_start_indices) != 1:
