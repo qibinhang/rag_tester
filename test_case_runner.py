@@ -67,9 +67,7 @@ class TestCaseRunner():
 
     def run_test_case(self, test_case_path, focal_file_path, is_ref):
         assert is_ref in ('no', 'human', 'rag')
-        test_case_relative_path = test_case_path.split('/src/test/java/')[1]
-        test_case_relative_path = test_case_relative_path.replace('.java', '')
-        test_case_relative_path = test_case_relative_path.replace('/', '.')
+        test_case_relative_path = self.get_test_case_relative_path(test_case_path)
 
         focal_method_name = focal_file_path.split('/')[-1].split('.')[0]
 
@@ -86,14 +84,19 @@ class TestCaseRunner():
         print(cmd)
         os.system(cmd)
 
+    def get_test_case_relative_path(self, test_case_path):
+        test_case_relative_path = test_case_path.split('/src/test/java/')[1]
+        test_case_relative_path = test_case_relative_path.split('/')[1:]
+        test_case_relative_path = '/'.join(test_case_relative_path)
+        test_case_relative_path = test_case_relative_path.replace('.java', '')
+        test_case_relative_path = test_case_relative_path.replace('/', '.')
+        return test_case_relative_path
+
     def get_focal_file_coverage(self, focal_file_path, test_case_path):
         base_path = f'{self.configs.project_dir}/{self.configs.project_name}'
         org_name = test_case_path.split('/src/test/java/')[1].split('/')[0]
         test_suffix = 'Test'
-
-        test_case_relative_path = test_case_path.split('/src/test/java/')[1]
-        test_case_relative_path = test_case_relative_path.replace('.java', '')
-        test_case_relative_path = test_case_relative_path.replace('/', '.')
+        test_case_relative_path = self.get_test_case_relative_path(test_case_path)
 
         jacoco_report_path = self.get_jacoco_report_path(base_path, test_case_relative_path, org_name, test_suffix)
 
@@ -116,7 +119,7 @@ class TestCaseRunner():
         append_path = org_name + "/" if '.' not in test_class_name else org_name + "." + '.'.join(test_class_name.split(".")[:-1]) + '/'
         suff_len = len(test_suffix)
         html_name = test_class_name.split(".")[-1][:suff_len * -1] + ".java.html" # changes from -4 to -5 depending on whether it's Test or Tests
-
+        
         jacoco_path = base_path + "/target/site/jacoco/" + append_path + html_name
         return jacoco_path
 
