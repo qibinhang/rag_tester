@@ -2,15 +2,15 @@ import os
 
 
 class Configs:
-    def __init__(self) -> None:
+    def __init__(self, project_name) -> None:
         self.environment = ['charlie', 'cluster'][0]
-        self.project_name = ['spark', 'HdrHistogram', 'blade/blade-kit', 'hutool/hutool-core'][2]
+        self.project_name = project_name
         self.llm_name = ['llama_3', 'llama_3:70b'][0]
         self.retrieval_mode = ['fm', 'tc', 'both'][0]
         self.retrieval_top_k = 1
 
-        self.version = f'v0.11.0_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
-        self.version_intro = 'analyze the coverage of generated test case and compare it with the desired coverage.'
+        self.version = f'v0.12.0_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
+        self.version_intro = 'do not generate assertions.'
         
         self.max_context_len = 1024
         self.max_input_len = 3072
@@ -25,17 +25,6 @@ class Configs:
         # format: [{focal_file_path: list([target_focal_method, target_test_case, references])
         self.samples_path = f'{self.root_dir}/rag_tester/data/samples_with_reference/medium_cases_{self.project_name}_reformat.json'
         self.project_dir = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test'
-
-        if self.project_name == 'spark':
-            self.project_test_case_base_path = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/spark/src/test/java/spark'
-        elif self.project_name == 'HdrHistogram':
-            self.project_test_case_base_path = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/HdrHistogram/src/test/java/org'
-        elif self.project_name == 'blade/blade-kit':
-            self.project_test_case_base_path = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/blade/blade-kit/src/test/java/com'
-        elif self.project_name == 'hutool/hutool-core':
-            self.project_test_case_base_path = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test/hutool/hutool-core/src/test/java/cn'
-        else:
-            raise ValueError('Invalid project name')
         
         # format: list([focal_file_path, generation_no_ref, generation_with_human_ref, generation_with_rag_ref, target_test_case)]
         self.test_case_initial_gen_save_path = f'{self.root_dir}/rag_tester/data/generated_test_cases/{self.project_name}_{self.llm_name}_init_gen_{self.version}.json'

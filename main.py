@@ -1,6 +1,8 @@
 import json
 import re
 import os
+import argparse
+import sys
 from tqdm import tqdm
 from configs import Configs
 from generator import Generator
@@ -8,6 +10,7 @@ from retriever_bm25 import Retriever as RetrieverBM25
 from test_case_runner import TestCaseRunner
 from statistic import Statistic
 from dataset import Dataset
+from processing_tc import process_generated_test_cases
 
 
 def generate_all_test_cases(generator):
@@ -80,93 +83,6 @@ def pipeline_for_generation_with_rag():
         json.dump(generated_test_cases, f, indent=4)
 
 
-def process_generated_test_cases():
-    def _process(init_generation):
-        result = re.findall(r'```java\n(.*?)```', init_generation, re.DOTALL)
-        if len(result) == 0:
-            result = re.findall(r'```\n(.*?)```', init_generation, re.DOTALL)
-        if len(result) == 0:
-            print('[WARNING] Abnormal generated test case:\n', init_generation, '\n\n')
-            return None, None
-
-        processed_test_case = None
-        for each_code in result:
-            if '@Test' in each_code:
-                processed_test_case = each_code
-                break
-        if processed_test_case is None:
-            print('[WARNING] Abnormal generated test case:\n', init_generation, '\n\n')
-            return None, None
-        
-        # get the class name of the test case
-        class_name = re.search(r'\sclass\s+(.+?)\s', processed_test_case)
-        if class_name is not None:
-            class_name = class_name.group(1)
-            if 'Test' not in class_name:
-                raise ValueError(f'Invalid class name in the generated test case:\n{processed_test_case}. Maybe need manually check the extraction.')
-        else:
-            print('[WARNING] Cannot find the class name in the generated test case:\n', processed_test_case, '\n\n')
-            # find the method name
-            class_name = re.search(r'\s(.+?)\s*\(', processed_test_case)
-            if class_name is not None:
-                class_name = class_name.group(1)
-            else:
-                raise('[WARNING] Cannot find the method name in the generated test case:\n', processed_test_case, '\n\n')
-
-        return processed_test_case, class_name
-
-
-    with open(configs.test_case_initial_gen_save_path, 'r') as f:
-        test_cases = json.load(f)
-
-    # save the generated test cases
-    saved_test_cases = []  # will be saved to a json file
-    for each_test_case in tqdm(test_cases, ncols=80, desc='Processing generated test cases'):
-        focal_file_path = each_test_case['focal_file_path']
-        focal_case_dir = focal_file_path[:focal_file_path.rfind('/')]
-        # test_case_name = focal_file_path.split('/')[-1].split('.')[0]
-        test_case_dir = focal_case_dir.replace('/main/', '/test/')
-
-        test_case_no_ref, class_name_no_ref = _process(each_test_case['generation_no_ref'])
-        if test_case_no_ref is None:
-            print(f'[WARNING] Abnormal test case: {focal_file_path}') 
-            continue
-
-        test_case_with_rag_ref, class_name_with_rag_ref = _process(each_test_case['generation_with_rag_ref'])
-        if test_case_with_rag_ref is None:
-            print(f'[WARNING] Abnormal test case: {focal_file_path}') 
-            continue
-
-        test_case_with_huam_ref, class_name_with_human_ref = None, None
-        if each_test_case['generation_with_human_ref'] is not None:
-            test_case_with_huam_ref, class_name_with_human_ref = _process(each_test_case['generation_with_human_ref'])
-            if test_case_with_huam_ref is None:
-                print(f'[WARNING] Abnormal test case: {focal_file_path}') 
-                continue
-
-        test_case_no_ref_path = f'{test_case_dir}/{class_name_no_ref}.java'
-        test_case_with_rag_ref_path = f'{test_case_dir}/{class_name_with_rag_ref}.java'
-        test_case_with_huam_ref_path = f'{test_case_dir}/{class_name_with_human_ref}.java' if test_case_with_huam_ref is not None else None
-
-        saved_test_cases.append({
-            'project_name': each_test_case['project_name'],
-            'focal_file_path': focal_file_path, 
-            'focal_method_name': each_test_case['focal_method_name'],
-            'generation_no_ref_path': test_case_no_ref_path, 
-            'generation_no_ref': test_case_no_ref,
-            'generation_with_human_ref_path': test_case_with_huam_ref_path,
-            'generation_with_human_ref': test_case_with_huam_ref,
-            'generation_with_rag_ref_path': test_case_with_rag_ref_path,
-            'generation_with_rag_ref': test_case_with_rag_ref,
-            'target_coverage': each_test_case['target_coverage'],
-            'target_test_case': each_test_case['target_test_case']
-        })
-
-    os.makedirs(os.path.dirname(configs.test_case_save_path), exist_ok=True)
-    with open(configs.test_case_save_path, 'w') as f:
-        json.dump(saved_test_cases, f, indent=4)
-
-
 def run_all_test_cases(test_case_runner):
     # run the generated test cases
     with open(configs.test_case_save_path, 'r') as f:
@@ -196,9 +112,13 @@ def main():
     pipeline_for_generation_with_rag()
     
     # process the generated test cases
-    process_generated_test_cases()
+    process_generated_test_cases(configs.test_case_initial_gen_save_path, configs.test_case_save_path)
 
     # run all test cases
+    if os.path.exists(configs.test_case_run_log_dir):
+        os.system(f'rm -r {configs.test_case_run_log_dir}')
+    os.makedirs(configs.test_case_run_log_dir)
+    
     test_case_runner = TestCaseRunner(configs)
     run_all_test_cases(test_case_runner)
     
@@ -208,12 +128,14 @@ def main():
 
 
 if __name__ == '__main__':
-    configs = Configs()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--project_name', type=str)
+    args = parser.parse_args()
+
+    configs = Configs(args.project_name)
+
     print(f'Configs:\n{configs.__dict__}\n\n')
 
     print(f"Processing {configs.project_name}...\n\n")
-    
-    os.makedirs(configs.test_case_run_log_dir, exist_ok=True)
 
     main()
-    

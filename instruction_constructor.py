@@ -7,13 +7,13 @@ class InstructionConstructor:
 
         self.example_target_context = """package spark;\n\nimport spark.utils.Wrapper;\npublic abstract class RouteImpl implements Route, Wrapper {\n    static final String DEFAULT_ACCEPT_TYPE = "*/*";\n\n    private String path;\n    private String acceptType;\n    private Object delegate;\n\n    public static RouteImpl create(final String path, String acceptType, final Route route) {\n        if (acceptType == null) {\n            acceptType = DEFAULT_ACCEPT_TYPE;\n        }\n        return new RouteImpl(path, acceptType, route) {\n            @Override\n            public Object handle(Request request, Response response) throws Exception {\n                return route.handle(request, response);\n            }\n        };\n    }\n}"""
 
-        self.example_target_test_case = """package spark;\n\nimport org.junit.Test;\n\nimport static junit.framework.TestCase.assertNull;\nimport static org.junit.Assert.assertEquals;\nimport static org.junit.Assert.assertNotNull;\n\npublic class RouteImplTest {\n\n    private final static String PATH_TEST = "/opt/test";\n    private final static String ACCEPT_TYPE_TEST  = "*/test";\n\n    private RouteImpl route;\n\n    @Test\n    public void testCreate_whenAcceptTypeNullValueInTheParameters_thenReturnPathAndAcceptTypeSuccessfully(){\n        route = RouteImpl.create(PATH_TEST, null, null);\n        assertEquals("Should return path specified", PATH_TEST, route.getPath());\n        assertEquals("Should return the default accept type", RouteImpl.DEFAULT_ACCEPT_TYPE, route.getAcceptType());\n    }\n}"""
+        self.example_target_test_case = """package spark;\n\nimport org.junit.Test;\n\npublic class RouteImplTest {\n\n    private final static String PATH_TEST = "/opt/test";\n    private final static String ACCEPT_TYPE_TEST  = "*/test";\n\n    private RouteImpl route;\n\n    @Test\n    public void testCreate_whenAcceptTypeNullValueInTheParameters_thenReturnPathAndAcceptTypeSuccessfully(){\n        route = RouteImpl.create(PATH_TEST, null, null);\n    }\n}"""
 
         self.example_target_coverage = """public static RouteImpl create(final String path, String acceptType, final Route route) {\n<COVER>        if (acceptType == null) {\n<COVER>            acceptType = DEFAULT_ACCEPT_TYPE;\n    }\n<COVER>        return new RouteImpl(path, acceptType, route) {\n        @Override\n        public Object handle(Request request, Response response) throws Exception {\n            return route.handle(request, response);\n        }\n    };\n}"""
 
         self.example_reference_focal_method = """static FilterImpl create(final String path, String acceptType, final Filter filter) {\n    if (acceptType == null) {\n        acceptType = DEFAULT_ACCEPT_TYPE;\n    }\n    return new FilterImpl(path, acceptType, filter) {\n        @Override\n        public void handle(Request request, Response response) throws Exception {\n            filter.handle(request, response);\n        }\n    };\n}"""
 
-        self.example_reference_test_case = """package spark;\n\nimport org.junit.Before;\nimport org.junit.Test;\n\nimport static org.junit.Assert.assertEquals;\n\npublic class FilterImplTest {\n\n    public String PATH_TEST;\n    public String ACCEPT_TYPE_TEST;\n    public FilterImpl filter;\n\n    @Before\n    public void setup(){\n        PATH_TEST = "/etc/test";\n        ACCEPT_TYPE_TEST  = "test/*";\n    }\n\n    @Test\n    public void testGets_thenReturnGetPathAndGetAcceptTypeSuccessfully() throws Exception {\n        filter = FilterImpl.create(PATH_TEST, ACCEPT_TYPE_TEST, null);\n        assertEquals("Should return path specified", PATH_TEST, filter.getPath());\n        assertEquals("Should return accept type specified", ACCEPT_TYPE_TEST, filter.getAcceptType());\n    }\n}"""
+        self.example_reference_test_case = """package spark;\n\nimport org.junit.Before;\nimport org.junit.Test;\n\npublic class FilterImplTest {\n\n    public String PATH_TEST;\n    public String ACCEPT_TYPE_TEST;\n    public FilterImpl filter;\n\n    @Before\n    public void setup(){\n        PATH_TEST = "/etc/test";\n        ACCEPT_TYPE_TEST  = "test/*";\n    }\n\n    @Test\n    public void testGets_thenReturnGetPathAndGetAcceptTypeSuccessfully() throws Exception {\n        filter = FilterImpl.create(PATH_TEST, ACCEPT_TYPE_TEST, null);\n    }\n}"""
 
     # TODO: make sure the tag <COVER> has been added to the vocabulary of the model
     def instruct_for_coverage_predict_given_tc(self, target_focal_method, context, target_test_case, example_fm_context_tc_cov: list=None):
@@ -83,20 +83,19 @@ class InstructionConstructor:
 
 
     def instruct_for_test_case_generate_given_cov(self, target_coverage, context, references_test_case: List[str]=None, references_coverage: List[str]=None):
-        system_prompt = f"""Task: Generate a JUnit test case for a given Java focal method's coverage to ensure specific lines of code are executed. The coverage includes special tags `<COVER>` indicating the code lines that need to be executed by the test case. The generated test case must contain one test class and one test method, use JUnit version 4.12, and be compatible with Java version 1.8.\n"""
+        system_prompt = f"""Task: Generate a JUnit test case for a given Java focal method to ensure specific lines of code are executed. The focal method includes special tags `<COVER>` indicating the code lines that need to be executed by the test case. \n"""
 
-        system_prompt += f"""# EXAMPLE:\n## Input: Focal Method's Coverage:\n```\n{self.example_target_coverage}\n```\n\n## Output Test Case:\n```\n{self.example_target_test_case}\n```\n"""
+        system_prompt += f"""# EXAMPLE:\n## Input: Focal Method:\n```\n{self.example_target_coverage}\n```\n\n## Output: Test Case:\n```\n{self.example_target_test_case}\n```\n"""
 
-        user_prompt = f"# Instructions:\n## Input: Focal Method's Coverage:\n```\n{target_coverage}\n```\n"
+        user_prompt = f"# Instructions:\n## Input: Focal Method:\n```\n{target_coverage}\n```\n"
         user_prompt += f"## The focal method belongs to the following java file:\n```\n{context}\n```\n"
-        user_prompt += f"## Instruction: You need to generate a JUnit test case to execute the code lines tagged `<COVER>` in the provided focal method's coverage.\n\n"
-        user_prompt += f"## Notes:\n- Only one test method in the generated test case.\n- The test method should be named clearly to reflect the test scenario.\n- Ensure the test case covers all lines marked with `<COVER>`.\n- Use appropriate assertions to verify the expected behavior.\n\n"
+        user_prompt += f"## Instruction:\nGenerate a JUnit test case for the input focal method. The test case must meet the following requirements:\n1. execute all lines marked with `<COVER>`.\n2. not contain assertion statements.\n3. contain only one test class and one test method.\n4. use JUnit version 4.12.\n5. be compatible with Java version 1.8.\n\n"
 
         if references_test_case is not None:
-            user_prompt += f"## References:\nHere are some referable coverage and it's corresponding test case, which might be helpful for your generation:\n"
+            user_prompt += f"## References:\nHere are some referable focal methods and their corresponding test cases, which might be helpful for your generation:\n"
             user_prompt += f""
             for i in range(len(references_test_case)):
-                user_prompt += f"### Input: Focal Method's Coverage {i+1}:\n```\n{references_coverage[i]}\n```\n\n"
+                user_prompt += f"### Input: Focal Method {i+1}:\n```\n{references_coverage[i]}\n```\n\n"
                 user_prompt += f"### Output: Test Case {i+1}:\n```\n{references_test_case[i]}\n```\n"
 
         messages = [{"role": "system", "content": system_prompt}, 
