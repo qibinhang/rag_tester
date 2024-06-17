@@ -52,7 +52,7 @@ def pipeline_for_generation_with_rag():
             corpus_tc.append(each_pair_cor.test_case)
             
         retriever = RetrieverBM25(corpus_cov, corpus_fm, corpus_tc)
-        references_cov_rag, references_fm_rag, references_tc_rag = retriever.retrieve(target_fm=target_focal_method, top_k=configs.retrieval_top_k, mode=configs.retrieval_mode)
+        references_cov_rag, references_fm_rag, references_tc_rag, references_score = retriever.retrieve(target_fm=target_focal_method, top_k=configs.retrieval_top_k, mode=configs.retrieval_mode)
 
         # generate test cases
         # with no reference
@@ -66,6 +66,7 @@ def pipeline_for_generation_with_rag():
 
         # with rag reference
         generation_rag_ref = generator.generate_test_case(target_coverage, context, references_test_case=references_tc_rag, references_coverage=references_cov_rag)
+        rag_references = [(references_score[i], references_cov_rag[i], references_tc_rag[i]) for i in range(len(references_cov_rag))]
 
         generated_test_cases.append({
             'project_name': project_name,
@@ -74,6 +75,7 @@ def pipeline_for_generation_with_rag():
             'generation_no_ref': generation_no_ref, 
             'generation_human_ref': generation_human_ref, 
             'generation_rag_ref': generation_rag_ref,
+            'rag_references': rag_references,
             'target_coverage': target_coverage,
             'target_test_case': target_test_case
             })

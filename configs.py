@@ -9,8 +9,8 @@ class Configs:
         self.retrieval_mode = ['fm', 'tc', 'both'][0]
         self.retrieval_top_k = 1
 
-        self.version = f'v0.12.0_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
-        self.version_intro = 'do not generate assertions.'
+        self.version = f'v0.13.0_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
+        self.version_intro = 'save the retrieved reference test cases in the generated test cases'
         
         self.max_context_len = 1024
         self.max_input_len = 3072

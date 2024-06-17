@@ -18,18 +18,18 @@ class Retriever():
     def retrieve(self, target_fm: str, top_k: int = 3, mode: str = 'fm'):
         assert mode in ['fm', 'tc', 'both']
         if mode == 'fm':
-            scores_fm = self.bm25_fm.get_scores(target_fm.split())
-            top_k_indices = sorted(range(len(scores_fm)), key=lambda i: scores_fm[i], reverse=True)[:top_k]
+            scores = self.bm25_fm.get_scores(target_fm.split())
+            top_k_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
         elif mode == 'tc':
-            scores_tc = self.bm25_tc.get_scores(target_fm.split())
-            top_k_indices = sorted(range(len(scores_tc)), key=lambda i: scores_tc[i], reverse=True)[:top_k]
+            scores = self.bm25_tc.get_scores(target_fm.split())
+            top_k_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
         else:
             scores_fm = self.bm25_fm.get_scores(target_fm.split())
             scores_tc = self.bm25_tc.get_scores(target_fm.split())
             scores = [0.5 * scores_fm[i] + 0.5 * scores_tc[i] for i in range(len(scores_fm))]
             top_k_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
 
-        return [self.corpus_cov[i] for i in top_k_indices], [self.corpus_fm[i] for i in top_k_indices], [self.corpus_tc[i] for i in top_k_indices]
+        return [self.corpus_cov[i] for i in top_k_indices], [self.corpus_fm[i] for i in top_k_indices], [self.corpus_tc[i] for i in top_k_indices], [scores[i] for i in top_k_indices]
     
 
 if __name__ == "__main__":
