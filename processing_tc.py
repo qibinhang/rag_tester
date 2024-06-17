@@ -22,14 +22,14 @@ def process_generated_test_cases(initial_test_case_save_path, processed_test_cas
             print(f'[WARNING] Abnormal test case: {focal_file_path}') 
             continue
 
-        test_case_with_rag_ref, class_name_with_rag_ref = _process_generated_test_cases(each_test_case['generation_with_rag_ref'])
+        test_case_with_rag_ref, class_name_with_rag_ref = _process_generated_test_cases(each_test_case['generation_rag_ref'])
         if test_case_with_rag_ref is None:
             print(f'[WARNING] Abnormal test case: {focal_file_path}') 
             continue
 
         test_case_with_huam_ref, class_name_with_human_ref = None, None
-        if each_test_case['generation_with_human_ref'] is not None:
-            test_case_with_huam_ref, class_name_with_human_ref = _process_generated_test_cases(each_test_case['generation_with_human_ref'])
+        if each_test_case['generation_human_ref'] is not None:
+            test_case_with_huam_ref, class_name_with_human_ref = _process_generated_test_cases(each_test_case['generation_human_ref'])
             if test_case_with_huam_ref is None:
                 print(f'[WARNING] Abnormal test case: {focal_file_path}') 
                 continue
@@ -44,10 +44,10 @@ def process_generated_test_cases(initial_test_case_save_path, processed_test_cas
             'focal_method_name': each_test_case['focal_method_name'],
             'generation_no_ref_path': test_case_no_ref_path, 
             'generation_no_ref': test_case_no_ref,
-            'generation_with_human_ref_path': test_case_with_huam_ref_path,
-            'generation_with_human_ref': test_case_with_huam_ref,
-            'generation_with_rag_ref_path': test_case_with_rag_ref_path,
-            'generation_with_rag_ref': test_case_with_rag_ref,
+            'generation_human_ref_path': test_case_with_huam_ref_path,
+            'generation_human_ref': test_case_with_huam_ref,
+            'generation_rag_ref_path': test_case_with_rag_ref_path,
+            'generation_rag_ref': test_case_with_rag_ref,
             'target_coverage': each_test_case['target_coverage'],
             'target_test_case': each_test_case['target_test_case']
         })

@@ -29,7 +29,7 @@ def pipeline_for_generation_with_rag():
     coverage_data = dataset.load_coverage_data_jacoco()
 
     # generating test case
-    generated_test_cases = []  # list[(focal_file_path, generation_no_ref, generation_with_human_ref, generation_with_rag_ref)]
+    generated_test_cases = []  # list[(focal_file_path, generation_no_ref, generation_human_ref, generation_rag_ref)]
     generator = Generator(configs)
 
     for target_pair_idx, each_target_pair in tqdm(enumerate(coverage_data), total=len(coverage_data), ncols=80, desc='Generating test cases'):
@@ -60,20 +60,20 @@ def pipeline_for_generation_with_rag():
 
         # TODO: check the reference_human
         # with human reference
-        generation_with_human_ref = None
+        generation_human_ref = None
         if references_human is not None:
-            generation_with_human_ref = generator.generate_test_case(target_coverage, context, references_test_case=references_human[0], references_coverage=references_human[1])
+            generation_human_ref = generator.generate_test_case(target_coverage, context, references_test_case=references_human[0], references_coverage=references_human[1])
 
         # with rag reference
-        generation_with_rag_ref = generator.generate_test_case(target_coverage, context, references_test_case=references_tc_rag, references_coverage=references_cov_rag)
+        generation_rag_ref = generator.generate_test_case(target_coverage, context, references_test_case=references_tc_rag, references_coverage=references_cov_rag)
 
         generated_test_cases.append({
             'project_name': project_name,
             'focal_file_path': focal_file_path, 
             'focal_method_name': focal_method_name,
             'generation_no_ref': generation_no_ref, 
-            'generation_with_human_ref': generation_with_human_ref, 
-            'generation_with_rag_ref': generation_with_rag_ref,
+            'generation_human_ref': generation_human_ref, 
+            'generation_rag_ref': generation_rag_ref,
             'target_coverage': target_coverage,
             'target_test_case': target_test_case
             })
@@ -92,15 +92,27 @@ def run_all_test_cases(test_case_runner):
 
 
 def get_statistics(statistic):
-    statistic.analyze_test_case_pass()
-    statistic.cal_bleu_for_saved_file()
+    statistic.count_test_case_pass()
+    statistic.cal_bleu_for_test_cases(is_pass=False, is_common=False)
+    statistic.cal_bleu_for_test_cases(is_pass=True, is_common=False)
+    statistic.cal_bleu_for_test_cases(is_pass=True, is_common=True)
 
+    print('Coverage analysis...')
+    print('- All coverages:')
     statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=1)
     statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=1)
     statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=2)
     statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=2)
     statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=3)
     statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=3)
+
+    print('\n- Common Coverages:')
+    statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=1, is_common=True)
+    statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=1, is_common=True)
+    statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=2, is_common=True)
+    statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=2, is_common=True)
+    statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=3, is_common=True)
+    statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=3, is_common=True)
 
 
 def main():

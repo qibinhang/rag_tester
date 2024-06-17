@@ -26,7 +26,7 @@ class Configs:
         self.samples_path = f'{self.root_dir}/rag_tester/data/samples_with_reference/medium_cases_{self.project_name}_reformat.json'
         self.project_dir = f'{self.root_dir}/rag_tester/data/raw_data/repos_removing_test'
         
-        # format: list([focal_file_path, generation_no_ref, generation_with_human_ref, generation_with_rag_ref, target_test_case)]
+        # format: list([focal_file_path, generation_no_ref, generation_human_ref, generation_rag_ref, target_test_case)]
         self.test_case_initial_gen_save_path = f'{self.root_dir}/rag_tester/data/generated_test_cases/{self.project_name}_{self.llm_name}_init_gen_{self.version}.json'
 
         # the format of saved test cases:
@@ -35,7 +35,7 @@ class Configs:
 
         self.test_case_run_log_dir = os.path.abspath(f'{self.root_dir}/rag_tester/data/generated_test_cases_run_log/{self.project_name}_{self.llm_name}_{self.version}')
 
-        self.test_case_coverage_save_path = f'{self.root_dir}/rag_tester/data/generated_test_cases_coverage/{self.project_name}_{self.llm_name}_{self.version}.json'
+        self.test_case_log_and_coverage_save_path = f'{self.root_dir}/rag_tester/data/generated_test_cases_log_coverage/{self.project_name}_{self.llm_name}_{self.version}.json'
 
         self.coverage_human_labeled_dir = f'{self.root_dir}/rag_tester/data/coverage_human_labeled'
         self.coverage_model_unlabeled_dir = f'{self.root_dir}/rag_tester/data/coverage_model_unlabeled'

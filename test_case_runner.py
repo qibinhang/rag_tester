@@ -14,6 +14,8 @@ class TestCaseRunner():
         self.focal_file_coverage = dict()  # e.g., {'Base64_1_no_ref': cov_no_ref, 'Base64_1_with_rag_ref': cov_with_rag_ref}
 
     def run_all_test_cases(self, test_cases):
+        test_case_with_log_coverage = []
+
         # run the generated test cases
         for each_test_case in tqdm(test_cases, ncols=80, desc='Running test cases'):
             focal_file_path = each_test_case['focal_file_path']
@@ -21,37 +23,36 @@ class TestCaseRunner():
             test_case_no_ref_path = f"{self.configs.project_dir}/{each_test_case['generation_no_ref_path']}"
             test_case_no_ref = each_test_case['generation_no_ref']
 
-            test_case_with_rag_ref_path = f"{self.configs.project_dir}/{each_test_case['generation_with_rag_ref_path']}"
-            test_case_with_rag_ref = each_test_case['generation_with_rag_ref']
+            test_case_with_rag_ref_path = f"{self.configs.project_dir}/{each_test_case['generation_rag_ref_path']}"
+            test_case_with_rag_ref = each_test_case['generation_rag_ref']
 
             test_case_with_human_ref_path, test_case_with_human_ref = None, None
-            if each_test_case['generation_with_human_ref_path'] is not None:
-                test_case_with_human_ref_path = f"{self.configs.project_dir}/{each_test_case['generation_with_human_ref_path']}"
-                test_case_with_human_ref = each_test_case['generation_with_human_ref']
+            if each_test_case['generation_human_ref_path'] is not None:
+                test_case_with_human_ref_path = f"{self.configs.project_dir}/{each_test_case['generation_human_ref_path']}"
+                test_case_with_human_ref = each_test_case['generation_human_ref']
             
-            focal_file_coverage_no_ref = self.run_test_case_and_get_coverage(test_case_no_ref, test_case_no_ref_path, focal_file_path, is_ref='no')
-            if focal_file_coverage_no_ref is not None:
-                coverage_info_no_ref = each_test_case.copy()
-                coverage_info_no_ref['focal_file_coverage'] = focal_file_coverage_no_ref
-                self.focal_file_coverage[self.cur_no_ref_log_name] = coverage_info_no_ref
+            log_path_no_ref, focal_file_coverage_no_ref = self.run_test_case_and_get_coverage(test_case_no_ref, test_case_no_ref_path, focal_file_path, is_ref='no')
+            each_test_case['log_path_no_ref'] = log_path_no_ref
+            each_test_case['coverage_no_ref'] = focal_file_coverage_no_ref
 
-            focal_file_coverage_rag_ref = self.run_test_case_and_get_coverage(test_case_with_rag_ref, test_case_with_rag_ref_path, focal_file_path, is_ref='rag')
-            if focal_file_coverage_rag_ref is not None:
-                coverage_info_rag_ref = each_test_case.copy()
-                coverage_info_rag_ref['focal_file_coverage'] = focal_file_coverage_rag_ref
-                self.focal_file_coverage[self.cur_rag_ref_log_name] = coverage_info_rag_ref
+            log_path_rag_ref, focal_file_coverage_rag_ref = self.run_test_case_and_get_coverage(test_case_with_rag_ref, test_case_with_rag_ref_path, focal_file_path, is_ref='rag')
+            each_test_case['log_path_rag_ref'] = log_path_rag_ref
+            each_test_case['coverage_rag_ref'] = focal_file_coverage_rag_ref
 
             if test_case_with_human_ref_path is not None:
-                focal_file_coverage_human_ref = self.run_test_case_and_get_coverage(test_case_with_human_ref, test_case_with_human_ref_path, focal_file_path, is_ref='human')
-                if focal_file_coverage_human_ref is not None:
-                    coverage_info_human_ref = each_test_case.copy()
-                    coverage_info_human_ref['focal_file_coverage'] = focal_file_coverage_human_ref
-                    self.focal_file_coverage[self.cur_human_ref_log_name] = coverage_info_human_ref
+                log_path_human_ref, focal_file_coverage_human_ref = self.run_test_case_and_get_coverage(test_case_with_human_ref, test_case_with_human_ref_path, focal_file_path, is_ref='human')
+                each_test_case['log_path_human_ref'] = log_path_human_ref
+                each_test_case['coverage_human_ref'] = focal_file_coverage_human_ref
+            else:
+                each_test_case['log_path_human_ref'] = None
+                each_test_case['coverage_human_ref'] = None
 
-        os.makedirs(os.path.dirname(self.configs.test_case_coverage_save_path), exist_ok=True)
-        with open(self.configs.test_case_coverage_save_path, 'w') as f:
-            json.dump(self.focal_file_coverage, f, indent=4)
-            print(f'Saved the coverage produced by the generated test cases to {self.configs.test_case_coverage_save_path}')
+            test_case_with_log_coverage.append(each_test_case)
+
+        os.makedirs(os.path.dirname(self.configs.test_case_log_and_coverage_save_path), exist_ok=True)
+        with open(self.configs.test_case_log_and_coverage_save_path, 'w') as f:
+            json.dump(test_case_with_log_coverage, f, indent=4)
+            print(f"Saved the generated test cases' log and coverage to {self.configs.test_case_log_and_coverage_save_path}")
 
     def run_test_case_and_get_coverage(self, test_case, test_case_path, focal_file_path, is_ref):
         print(f'Running the test case with = {is_ref} = reference...')
@@ -59,11 +60,13 @@ class TestCaseRunner():
         with open(test_case_path, 'w') as f:
             f.write(test_case)
 
-        self.run_test_case(test_case_path, focal_file_path, is_ref)
+        tc_run_log_path = self.run_test_case(test_case_path, focal_file_path, is_ref)
         os.remove(test_case_path)
 
         focal_file_coverage = self.get_focal_file_coverage(focal_file_path, test_case_path)
-        return ''.join(focal_file_coverage) if focal_file_coverage is not None else None
+        focal_file_coverage = ''.join(focal_file_coverage) if focal_file_coverage is not None else None
+
+        return tc_run_log_path, focal_file_coverage
 
     def run_test_case(self, test_case_path, focal_file_path, is_ref):
         assert is_ref in ('no', 'human', 'rag')
@@ -83,6 +86,7 @@ class TestCaseRunner():
 
         print(cmd)
         os.system(cmd)
+        return log_file_path
 
     def get_test_case_relative_path(self, test_case_path):
         test_case_relative_path = test_case_path.split('/src/test/java/')[1]
