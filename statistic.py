@@ -139,6 +139,55 @@ class Statistic():
                     print('-'*50)
                 print('='*50)
 
+    def get_negative_rag_ref_compilation(self):
+        compilation_error_type = ['cannot find symbol',]
+        unknow_types = []
+        negative_rag_ref_compilation = []
+        each_error_type_count = {error_type: 0 for error_type in compilation_error_type}
+
+        print('\n\nRAG Fail Compilation but NoRAG Success Compilation: ')
+        for each_tc_log_cov in self.test_case_log_analysis:
+            if each_tc_log_cov['result_no_ref'] != 'FAIL_COMPILE' and each_tc_log_cov['result_rag_ref'] == 'FAIL_COMPILE':
+                negative_rag_ref_compilation.append(each_tc_log_cov)
+        
+        # count the error types
+        for each_tc_log_cov in negative_rag_ref_compilation:
+            log_path = each_tc_log_cov['log_path_rag_ref']
+            with open(log_path, 'r') as f:
+                running_log = f.readlines()
+            
+            is_unknow_type = True
+            for error_type in compilation_error_type:
+                for each_line in running_log:
+                    if error_type in each_line:
+                        each_error_type_count[error_type] += 1
+                        is_unknow_type = False
+                        break
+            if is_unknow_type:
+                unknow_types.append(log_path)
+
+        print(f'Negative RAG Ref Compilation in Total: {len(negative_rag_ref_compilation)}')
+        print(f'Error Type Count:\n{each_error_type_count}\n\n')
+        print(f'Unknown error types: {unknow_types}')
+
+        # print the negative rag ref compilation
+        for each_tc_log_cov in negative_rag_ref_compilation:
+            print(f'- target_focal_method:\n{each_tc_log_cov["target_coverage"]}')
+            print(f'- target_test_case:\n{each_tc_log_cov["target_test_case"]}')
+
+            print(f'- no_ref log_path:\n{each_tc_log_cov["log_path_no_ref"]}')
+            print(f'- no_ref generation:\n{each_tc_log_cov["generation_no_ref"]}\n')
+
+            print(f'- rag_ref log_path:\n{each_tc_log_cov["log_path_rag_ref"]}')
+            print(f'- rag_ref generation:\n{each_tc_log_cov["generation_rag_ref"]}\n')
+
+            for each_ref in each_tc_log_cov['rag_references']:
+                print('-'*50)
+                print(f'+ rag_ref score: {each_ref[0]}\n')
+                print(f'+ rag_ref coverage:\n{each_ref[1]}\n')
+                print(f'+ rag_ref test case:\n{each_ref[2]}\n')
+            print('='*50)
+
     def get_positive_negative_rag_ref_coverage(self):
         is_common = True
         is_ref = 'no_ref'
