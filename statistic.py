@@ -110,14 +110,99 @@ class Statistic():
             
         return test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs
 
-    def get_negative_rag_ref(self):
+    def get_negative_rag_ref_pass(self):
         print('\n\nNegative RAG Reference: ')
 
         for each_tc_log_cov in self.test_case_log_analysis:
             if each_tc_log_cov['result_no_ref'] == 'SUCCESS' and each_tc_log_cov['result_rag_ref'] != 'SUCCESS':
                 print(f'- no_ref:\n{each_tc_log_cov["generation_no_ref"]}')
                 print(f'- rag_ref:\n{each_tc_log_cov["generation_rag_ref"]}\n')
-                print(f'- rag_references:\n{each_tc_log_cov["target_test_case"]}\n\n')
+                for each_ref in each_tc_log_cov['rag_references']:
+                    print(f'- rag_ref score: {each_ref[0]}\n')
+                    print(f'- rag_ref coverage:\n{each_ref[1]}\n')
+                    print(f'- rag_ref test case:\n{each_ref[2]}\n')
+                    print('-'*50)
+                print('='*50)
+    
+    def get_positive_rag_ref_pass(self):
+        print('\n\nPositive RAG Reference: ')
+
+        for each_tc_log_cov in self.test_case_log_analysis:
+            if each_tc_log_cov['result_no_ref'] != 'SUCCESS' and each_tc_log_cov['result_rag_ref'] == 'SUCCESS':
+                print(f'- focal_method:\n{each_tc_log_cov["target_coverage"]}')
+                print(f'- no_ref:\n{each_tc_log_cov["generation_no_ref"]}')
+                print(f'- rag_ref:\n{each_tc_log_cov["generation_rag_ref"]}\n')
+                for each_ref in each_tc_log_cov['rag_references']:
+                    print(f'- rag_ref score: {each_ref[0]}\n')
+                    print(f'- rag_ref coverage:\n{each_ref[1]}\n')
+                    print(f'- rag_ref test case:\n{each_ref[2]}\n')
+                    print('-'*50)
+                print('='*50)
+
+    def get_positive_negative_rag_ref_coverage(self):
+        is_common = True
+        is_ref = 'no_ref'
+        coverages = self.load_coverage(is_ref=is_ref, n_cover_line_threshold=1)
+
+        if is_common:
+            another_is_ref = 'rag_ref' if is_ref == 'no_ref' else 'no_ref'
+            common_coverages = []
+            for each_cov in coverages:
+                if each_cov[f'coverage_{another_is_ref}'] is not None:
+                    common_coverages.append(each_cov)
+            coverages = common_coverages
+
+        positive_cases, negative_cases = [], []
+
+        for each_tc_log_cov in coverages:
+            no_ref_cov = each_tc_log_cov['coverage_no_ref']
+            rag_ref_cov = each_tc_log_cov['coverage_rag_ref']
+            if no_ref_cov is None or rag_ref_cov is None:
+                continue
+            
+            # target_focal_method_coverage, focal_file_coverage, focal_method_name
+
+            is_exact_match_no_ref, is_fully_cover_no_ref, cover_ratio_no_ref, fm_cov_no_ref = self._analyze_cov(
+                target_focal_method_coverage=each_tc_log_cov['target_coverage'], 
+                focal_file_coverage=no_ref_cov, 
+                focal_method_name=each_tc_log_cov['focal_method_name'],
+                return_fm_cov=True
+                )
+
+            is_exact_match_rag_ref, is_fully_cover_rag_ref, cover_ratio_rag_ref, fm_cov_rag_ref = self._analyze_cov(
+                target_focal_method_coverage=each_tc_log_cov['target_coverage'], 
+                focal_file_coverage=rag_ref_cov, 
+                focal_method_name=each_tc_log_cov['focal_method_name'],
+                return_fm_cov=True
+                )
+            
+            each_tc_log_cov['fm_cov_no_ref'] = fm_cov_no_ref
+            each_tc_log_cov['fm_cov_rag_ref'] = fm_cov_rag_ref
+
+            if is_exact_match_rag_ref > is_exact_match_no_ref or is_fully_cover_rag_ref > is_fully_cover_no_ref or cover_ratio_rag_ref > cover_ratio_no_ref:
+                positive_cases.append(each_tc_log_cov)
+            elif is_exact_match_rag_ref < is_exact_match_no_ref or is_fully_cover_rag_ref < is_fully_cover_no_ref or cover_ratio_rag_ref < cover_ratio_no_ref:
+                negative_cases.append(each_tc_log_cov)
+            
+        print(f'Positive: {len(positive_cases)}, Negative: {len(negative_cases)}')
+        for pos_neg_case in [('Positive', positive_cases), ('Negative', negative_cases)]:
+            print(f'\n\n{pos_neg_case[0]} Cases:')  
+            for each_case in pos_neg_case[1]:
+                print(f'- target_focal_method:\n{each_case["target_coverage"]}')
+                print(f'- target_test_case:\n{each_case["target_test_case"]}')
+
+                print(f'- no_ref generation:\n{each_case["generation_no_ref"]}\n')
+                print(f'- no_ref coverage:\n{each_case["fm_cov_no_ref"]}\n')
+
+                print(f'- rag_ref generation:\n{each_case["generation_rag_ref"]}\n')
+                print(f'- rag_ref coverage:\n{each_case["fm_cov_rag_ref"]}\n')
+
+                for each_ref in each_case['rag_references']:
+                    print('-'*50)
+                    print(f'+ rag_ref score: {each_ref[0]}\n')
+                    print(f'+ rag_ref coverage:\n{each_ref[1]}\n')
+                    print(f'+ rag_ref test case:\n{each_ref[2]}\n')
+                print('='*50)
 
     def cal_bleu(self, generated_target_pairs):
         generated_test_cases, target_test_cases = [], []
@@ -187,10 +272,8 @@ class Statistic():
             focal_file_coverage = cov_info['focal_file_coverage']
             focal_method_name = cov_info['focal_method_name']
             focal_method_name = focal_method_name.split('::::')[1]
-            
-            generated_focal_method_coverage = self.get_generated_focal_method_coverage(focal_file_coverage, target_focal_method_coverage, focal_method_name)
 
-            is_exact_match, is_fully_cover, cover_ratio = self.eval_generated_coverage(generated_focal_method_coverage, target_focal_method_coverage)
+            is_exact_match, is_fully_cover, cover_ratio = self._analyze_cov(target_focal_method_coverage, focal_file_coverage, focal_method_name)
 
             exact_match_cases.append(is_exact_match)
             fully_cover_cases.append(is_fully_cover)
@@ -204,6 +287,16 @@ class Statistic():
         print(f'Fully Cover: {avg_cover:.2%} ({sum(fully_cover_cases)}/{len(fully_cover_cases)})')
         print(f'Cover Ratio: {avg_cover_ratio:.2%}')
     
+    def _analyze_cov(self, target_focal_method_coverage, focal_file_coverage, focal_method_name, return_fm_cov=False):        
+        generated_focal_method_coverage = self.get_generated_focal_method_coverage(focal_file_coverage, target_focal_method_coverage, focal_method_name)
+
+        is_exact_match, is_fully_cover, cover_ratio = self.eval_generated_coverage(generated_focal_method_coverage, target_focal_method_coverage)
+
+        if return_fm_cov:
+            return is_exact_match, is_fully_cover, cover_ratio, generated_focal_method_coverage
+        else:
+            return is_exact_match, is_fully_cover, cover_ratio
+
     def get_generated_focal_method_coverage(self, focal_file_coverage, target_coverage, focal_method_name):
         focal_file = focal_file_coverage.strip().replace('<COVER>', '')
         focal_method = target_coverage.strip().replace('<COVER>', '')

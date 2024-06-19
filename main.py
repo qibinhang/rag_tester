@@ -116,6 +116,11 @@ def get_statistics(statistic):
     statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=3, is_common=True)
     statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=3, is_common=True)
 
+    # analyze the positive and negative references
+    # statistic.get_negative_rag_ref_pass()
+    # statistic.get_positive_rag_ref_pass()
+    # statistic.get_positive_negative_rag_ref_coverage()
+
 
 def main():
     # generate all test cases without rag
