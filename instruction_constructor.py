@@ -106,3 +106,17 @@ class InstructionConstructor:
     
     def instruct_for_test_case_generate_given_coverage(target_coverage, context, reference_test_case=None, reference_coverage=None):
         pass
+
+    def instruct_for_refine_test_case(self, generated_tc, generated_tc_error_msg, target_cov, target_context):
+        instruct_initial_generation = self.instruct_for_test_case_generate_given_cov(target_cov, target_context)
+
+        assistant_generation = f"""Generated test case:\n```\n{generated_tc}\n```"""
+        user_error_msg_instruct = f"""When exectuing the generated test case, encounter the following error:\n```\n{generated_tc_error_msg}\n```\nPlease refine the generated test case to fix the error.\n"""
+
+        instruct_refine = [
+            {"role": "assistant", "content": assistant_generation}, 
+            {"role": "user", "content": user_error_msg_instruct}
+            ]
+        
+        messages = instruct_initial_generation + instruct_refine
+        return messages

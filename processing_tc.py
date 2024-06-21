@@ -5,7 +5,7 @@ import sys
 from tqdm import tqdm
 
 
-def process_generated_test_cases(initial_test_case_save_path, processed_test_case_save_path):
+def process_all_generated_test_cases(initial_test_case_save_path, processed_test_case_save_path):
     with open(initial_test_case_save_path, 'r') as f:
         test_cases = json.load(f)
 
@@ -17,19 +17,19 @@ def process_generated_test_cases(initial_test_case_save_path, processed_test_cas
         # test_case_name = focal_file_path.split('/')[-1].split('.')[0]
         test_case_dir = focal_case_dir.replace('/main/', '/test/')
 
-        test_case_no_ref, class_name_no_ref = _process_generated_test_cases(each_test_case['generation_no_ref'])
+        test_case_no_ref, class_name_no_ref = process_generated_test_case(each_test_case['generation_no_ref'])
         if test_case_no_ref is None:
             print(f'[WARNING] Abnormal test case: {focal_file_path}') 
             continue
 
-        test_case_with_rag_ref, class_name_with_rag_ref = _process_generated_test_cases(each_test_case['generation_rag_ref'])
+        test_case_with_rag_ref, class_name_with_rag_ref = process_generated_test_case(each_test_case['generation_rag_ref'])
         if test_case_with_rag_ref is None:
             print(f'[WARNING] Abnormal test case: {focal_file_path}') 
             continue
 
         test_case_with_huam_ref, class_name_with_human_ref = None, None
         if each_test_case['generation_human_ref'] is not None:
-            test_case_with_huam_ref, class_name_with_human_ref = _process_generated_test_cases(each_test_case['generation_human_ref'])
+            test_case_with_huam_ref, class_name_with_human_ref = process_generated_test_case(each_test_case['generation_human_ref'])
             if test_case_with_huam_ref is None:
                 print(f'[WARNING] Abnormal test case: {focal_file_path}') 
                 continue
@@ -38,26 +38,22 @@ def process_generated_test_cases(initial_test_case_save_path, processed_test_cas
         test_case_with_rag_ref_path = f'{test_case_dir}/{class_name_with_rag_ref}.java'
         test_case_with_huam_ref_path = f'{test_case_dir}/{class_name_with_human_ref}.java' if test_case_with_huam_ref is not None else None
 
-        saved_test_cases.append({
-            'project_name': each_test_case['project_name'],
-            'focal_file_path': focal_file_path, 
-            'focal_method_name': each_test_case['focal_method_name'],
-            'generation_no_ref_path': test_case_no_ref_path, 
-            'generation_no_ref': test_case_no_ref,
-            'generation_human_ref_path': test_case_with_huam_ref_path,
-            'generation_human_ref': test_case_with_huam_ref,
-            'generation_rag_ref_path': test_case_with_rag_ref_path,
-            'generation_rag_ref': test_case_with_rag_ref,
-            'target_coverage': each_test_case['target_coverage'],
-            'target_test_case': each_test_case['target_test_case']
-        })
+        each_test_case['focal_file_path'] = focal_file_path
+        each_test_case['generation_no_ref_path'] = test_case_no_ref_path
+        each_test_case['generation_no_ref'] = test_case_no_ref
+        each_test_case['generation_human_ref_path'] = test_case_with_huam_ref_path
+        each_test_case['generation_human_ref'] = test_case_with_huam_ref
+        each_test_case['generation_rag_ref_path'] = test_case_with_rag_ref_path
+        each_test_case['generation_rag_ref'] = test_case_with_rag_ref
+
+        saved_test_cases.append(each_test_case)
 
     os.makedirs(os.path.dirname(processed_test_case_save_path), exist_ok=True)
     with open(processed_test_case_save_path, 'w') as f:
         json.dump(saved_test_cases, f, indent=4)
 
 
-def _process_generated_test_cases(init_generation):
+def process_generated_test_case(init_generation):
     test_case = _extract_test_case(init_generation)
     if test_case is None:
         return None, None

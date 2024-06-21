@@ -10,7 +10,8 @@ from retriever_bm25 import Retriever as RetrieverBM25
 from test_case_runner import TestCaseRunner
 from statistic import Statistic
 from dataset import Dataset
-from processing_tc import process_generated_test_cases
+from processing_tc import process_all_generated_test_cases
+from test_case_refiner import TestCaseRefiner
 
 
 def generate_all_test_cases(generator):
@@ -70,6 +71,7 @@ def pipeline_for_generation_with_rag():
 
         generated_test_cases.append({
             'project_name': project_name,
+            'target_coverage_idx': target_pair_idx,
             'focal_file_path': focal_file_path, 
             'focal_method_name': focal_method_name,
             'generation_no_ref': generation_no_ref, 
@@ -77,6 +79,7 @@ def pipeline_for_generation_with_rag():
             'generation_rag_ref': generation_rag_ref,
             'rag_references': rag_references,
             'target_coverage': target_coverage,
+            'target_context': context,
             'target_test_case': target_test_case
             })
     
@@ -90,11 +93,24 @@ def run_all_test_cases(test_case_runner):
     with open(configs.test_case_save_path, 'r') as f:
         test_cases = json.load(f)
 
-    test_case_runner.run_all_test_cases(test_cases)
+    no_ref_log_coverage = test_case_runner.run_all_test_cases(test_cases, is_ref='no_ref')
+    rag_ref_log_coverage = test_case_runner.run_all_test_cases(test_cases, is_ref='rag_ref')
+
+    # merge
+    merge_log_coverage = no_ref_log_coverage
+    for idx in range(len(no_ref_log_coverage)):
+        assert no_ref_log_coverage[idx]['target_coverage_idx'] == rag_ref_log_coverage[idx]['target_coverage_idx']
+
+        merge_log_coverage[idx]['log_path_rag_ref'] = rag_ref_log_coverage[idx]['log_path_rag_ref']
+        merge_log_coverage[idx]['coverage_rag_ref'] = rag_ref_log_coverage[idx]['coverage_rag_ref']
+            
+    test_case_runner.save_log_coverage(merge_log_coverage, configs.test_case_log_and_coverage_save_path)
 
 
 def get_statistics(statistic):
-    statistic.count_test_case_pass()
+    statistic.count_test_case_pass(is_ref='no_ref')
+    statistic.count_test_case_pass(is_ref='rag_ref')
+
     statistic.cal_bleu_for_test_cases(is_pass=False, is_common=False)
     statistic.cal_bleu_for_test_cases(is_pass=True, is_common=False)
     statistic.cal_bleu_for_test_cases(is_pass=True, is_common=True)
@@ -120,31 +136,87 @@ def get_statistics(statistic):
     # statistic.get_negative_rag_ref_pass()
     # statistic.get_positive_rag_ref_pass()
     # statistic.get_positive_negative_rag_ref_coverage()
+    # statistic.get_negative_rag_ref_compilation()
+
+
+def refine_test_case(generator, test_case_log_and_coverage_save_path, refined_test_case_save_dir):
+    statistic = Statistic(test_case_log_and_coverage_save_path)
+    tc_refiner = TestCaseRefiner(generator=generator)
+    no_ref_refined_test_cases = tc_refiner.refine(
+        test_case_log_and_coverage=statistic.test_case_log_analysis, 
+        is_ref='no_ref'
+        )
+    tc_refiner.save_refined_test_cases(no_ref_refined_test_cases, f'{refined_test_case_save_dir}/no_ref.json')
+    
+    rag_ref_refined_test_cases = tc_refiner.refine(
+        test_case_log_and_coverage=statistic.test_case_log_analysis, 
+        is_ref='rag_ref'
+        )
+    tc_refiner.save_refined_test_cases(rag_ref_refined_test_cases, f'{refined_test_case_save_dir}/rag_ref.json')
+
+
+def evaluate_refined_test_cases(refined_test_case_save_dir, is_ref):
+    ## run the refined test cases
+    with open(f'{refined_test_case_save_dir}/{is_ref}.json', 'r') as f:
+        refined_test_cases = json.load(f)
+
+    refined_test_case_run_log_dir = configs.get_refined_test_case_run_log_dir()
+    if os.path.exists(refined_test_case_run_log_dir):
+        os.system(f'rm -r {refined_test_case_run_log_dir}')
+    os.makedirs(refined_test_case_run_log_dir)
+
+    test_case_runner = TestCaseRunner(
+        configs, 
+        test_case_run_log_dir=refined_test_case_run_log_dir
+        )
+    
+    test_case_with_log_coverage = test_case_runner.run_all_test_cases(refined_test_cases, is_ref=is_ref)
+
+    refined_log_coverage_save_path = configs.get_refined_test_case_log_and_coverage_save_path()
+
+    test_case_runner.save_log_coverage(
+        test_case_with_log_coverage, refined_log_coverage_save_path
+        )
+
+    ## statistics
+    statistic = Statistic(refined_log_coverage_save_path)
+    statistic.count_test_case_pass(is_ref=is_ref)
 
 
 def main():
-    # generate all test cases without rag
-    # generator = Generator(configs)
-    # generate_all_test_cases(generator)
-
     # generate all test cases with rag (BM25)
     pipeline_for_generation_with_rag()
     
     # process the generated test cases
-    process_generated_test_cases(configs.test_case_initial_gen_save_path, configs.test_case_save_path)
+    process_all_generated_test_cases(configs.test_case_initial_gen_save_path, configs.test_case_save_path)
 
     # run all test cases
     if os.path.exists(configs.test_case_run_log_dir):
         os.system(f'rm -r {configs.test_case_run_log_dir}')
     os.makedirs(configs.test_case_run_log_dir)
     
-    test_case_runner = TestCaseRunner(configs)
+    test_case_runner = TestCaseRunner(configs, configs.test_case_run_log_dir)
     run_all_test_cases(test_case_runner)
     
     # statistics of test case execution
-    statistic = Statistic(configs)
+    statistic = Statistic(configs.test_case_log_and_coverage_save_path)
     get_statistics(statistic)
 
+    # refine round 1
+    ## refine
+    configs.refine_round = 1
+    refined_test_case_save_dir = configs.get_refined_test_case_save_dir()
+
+    generator = Generator(configs)
+    refine_test_case(
+        generator=generator,
+        test_case_log_and_coverage_save_path=configs.test_case_log_and_coverage_save_path,
+        refined_test_case_save_dir=refined_test_case_save_dir
+        )
+    
+    evaluate_refined_test_cases(refined_test_case_save_dir, is_ref='no_ref')
+    evaluate_refined_test_cases(refined_test_case_save_dir, is_ref='rag_ref')
+    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

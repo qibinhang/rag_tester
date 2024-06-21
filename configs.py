@@ -9,8 +9,8 @@ class Configs:
         self.retrieval_mode = ['fm', 'tc', 'both'][0]
         self.retrieval_top_k = 1
 
-        self.version = f'v0.13.0_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
-        self.version_intro = 'save the retrieved reference test cases in the generated test cases'
+        self.version = f'v0.14.1_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
+        self.version_intro = 'refine the wrong test cases'
         
         self.max_context_len = 1024
         self.max_input_len = 3072
@@ -44,6 +44,19 @@ class Configs:
         self.set_retriever_configs()
         self.set_coverage_labeling_model_configs()
         self.set_coverage_labeling_predictor_configs()
+        self.set_refine_configs()
+    
+    def set_refine_configs(self):
+        self.refine_round = 0
+    
+    def get_refined_test_case_save_dir(self):
+        return f'{self.root_dir}/rag_tester/data/refined_test_cases/{self.project_name}_{self.llm_name}_round_{self.refine_round}_{self.version}'
+    
+    def get_refined_test_case_log_and_coverage_save_path(self):
+        return f'{self.root_dir}/rag_tester/data/refined_test_cases_log_coverage/{self.project_name}_{self.llm_name}_round_{self.refine_round}_{self.version}.json'
+    
+    def get_refined_test_case_run_log_dir(self):
+        return f'{self.root_dir}/rag_tester/data/refined_test_cases_run_log/{self.project_name}_{self.llm_name}_round_{self.refine_round}_{self.version}'
 
     def set_coverage_labeling_model_configs(self):
         # the major configures are in instruction_tuning_configs.yaml

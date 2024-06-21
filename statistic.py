@@ -5,12 +5,11 @@ import evaluate
 
 
 class Statistic():
-    def __init__(self, configs):
-        self.configs = configs
-        self.test_case_log_analysis = self.analyze_test_case_run_logs()
+    def __init__(self, test_case_log_and_coverage_save_path):
+        self.test_case_log_analysis = self.analyze_test_case_run_logs(test_case_log_and_coverage_save_path)
 
-    def analyze_test_case_run_logs(self):
-        with open(self.configs.test_case_log_and_coverage_save_path, 'r') as f:
+    def analyze_test_case_run_logs(self, test_case_log_and_coverage_save_path):
+        with open(test_case_log_and_coverage_save_path, 'r') as f:
             test_case_log_and_cov = json.load(f)
 
         test_case_log_analysis = []
@@ -53,10 +52,9 @@ class Statistic():
             print(f'[WARNING] Unknown error type: {log_name}')
             return 'UNKNOWN'
 
-    def count_test_case_pass(self):
-        for is_ref in ('no_ref', 'rag_ref'):  # TODO: add 'human_ref'
-            success_pass, fail_compile, fail_execute, unknown = self._count_test_case_pass(is_ref)
-            print(f'[{is_ref}]\nFail Compile: {len(fail_compile)}, Fail Execute: {len(fail_execute)}, Unknown: {len(unknown)}, Success Pass: {len(success_pass)}\n')
+    def count_test_case_pass(self, is_ref):
+        success_pass, fail_compile, fail_execute, unknown = self._count_test_case_pass(is_ref)
+        print(f'[{is_ref}]\nFail Compile: {len(fail_compile)}, Fail Execute: {len(fail_execute)}, Unknown: {len(unknown)}, Success Pass: {len(success_pass)}\n')
 
     def _count_test_case_pass(self, is_ref):
         success_pass, fail_compile, fail_execute, unknown = [], [], [], []
