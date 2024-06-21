@@ -48,12 +48,14 @@ class Configs:
     
     def set_refine_configs(self):
         self.refine_round = 0
+
+        self.final_test_case_log_and_coverage_save_path = f'{self.root_dir}/rag_tester/data/final_test_cases_log_coverage/{self.project_name}_{self.llm_name}_final_{self.version}.json'
     
     def get_refined_test_case_save_dir(self):
         return f'{self.root_dir}/rag_tester/data/refined_test_cases/{self.project_name}_{self.llm_name}_round_{self.refine_round}_{self.version}'
     
-    def get_refined_test_case_log_and_coverage_save_path(self):
-        return f'{self.root_dir}/rag_tester/data/refined_test_cases_log_coverage/{self.project_name}_{self.llm_name}_round_{self.refine_round}_{self.version}.json'
+    def get_refined_test_case_log_and_coverage_save_dir(self):
+        return f'{self.root_dir}/rag_tester/data/refined_test_cases_log_coverage/{self.project_name}_{self.llm_name}_round_{self.refine_round}_{self.version}'
     
     def get_refined_test_case_run_log_dir(self):
         return f'{self.root_dir}/rag_tester/data/refined_test_cases_run_log/{self.project_name}_{self.llm_name}_round_{self.refine_round}_{self.version}'

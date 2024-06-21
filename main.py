@@ -161,9 +161,6 @@ def evaluate_refined_test_cases(refined_test_case_save_dir, is_ref):
         refined_test_cases = json.load(f)
 
     refined_test_case_run_log_dir = configs.get_refined_test_case_run_log_dir()
-    if os.path.exists(refined_test_case_run_log_dir):
-        os.system(f'rm -r {refined_test_case_run_log_dir}')
-    os.makedirs(refined_test_case_run_log_dir)
 
     test_case_runner = TestCaseRunner(
         configs, 
@@ -172,7 +169,8 @@ def evaluate_refined_test_cases(refined_test_case_save_dir, is_ref):
     
     test_case_with_log_coverage = test_case_runner.run_all_test_cases(refined_test_cases, is_ref=is_ref)
 
-    refined_log_coverage_save_path = configs.get_refined_test_case_log_and_coverage_save_path()
+    refined_log_coverage_save_dir = configs.get_refined_test_case_log_and_coverage_save_dir()
+    refined_log_coverage_save_path = f'{refined_log_coverage_save_dir}/{is_ref}.json'
 
     test_case_runner.save_log_coverage(
         test_case_with_log_coverage, refined_log_coverage_save_path
@@ -181,6 +179,31 @@ def evaluate_refined_test_cases(refined_test_case_save_dir, is_ref):
     ## statistics
     statistic = Statistic(refined_log_coverage_save_path)
     statistic.count_test_case_pass(is_ref=is_ref)
+
+
+def merge_refined_test_cases(before_refine_test_case_log_cov_path, refined_test_case_log_cov_save_dir, save_path):
+    with open(before_refine_test_case_log_cov_path, 'r') as f:
+        before_refine_test_case_log_cov = json.load(f)
+    
+    for is_ref in ('no_ref', 'rag_ref'):
+        with open(f'{refined_test_case_log_cov_save_dir}/{is_ref}.json', 'r') as f:
+            refined_test_case_log_cov = json.load(f)
+
+        for each_refined_test_case in refined_test_case_log_cov:
+            refined_target_coverage_idx = each_refined_test_case['target_coverage_idx']
+            for idx, each_before_refine_test_case in enumerate(before_refine_test_case_log_cov):
+                if each_before_refine_test_case['target_coverage_idx'] == refined_target_coverage_idx:
+                    before_refine_test_case_log_cov[idx][f'generation_{is_ref}'] = each_refined_test_case[f'generation_{is_ref}']
+                    before_refine_test_case_log_cov[idx][f'generation_{is_ref}_path'] = each_refined_test_case[f'generation_{is_ref}_path']
+                    before_refine_test_case_log_cov[idx][f'result_{is_ref}'] = each_refined_test_case[f'result_{is_ref}']
+                    before_refine_test_case_log_cov[idx][f'log_path_{is_ref}'] = each_refined_test_case[f'log_path_{is_ref}']
+                    before_refine_test_case_log_cov[idx][f'coverage_{is_ref}'] = each_refined_test_case[f'coverage_{is_ref}']
+
+                    break
+    
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    with open(save_path, 'w') as f:
+        json.dump(before_refine_test_case_log_cov, f, indent=4)
 
 
 def main():
@@ -214,9 +237,35 @@ def main():
         refined_test_case_save_dir=refined_test_case_save_dir
         )
     
+    ## evaluate
+    refined_test_case_run_log_dir = configs.get_refined_test_case_run_log_dir()
+    if os.path.exists(refined_test_case_run_log_dir):
+        os.system(f'rm -r {refined_test_case_run_log_dir}')
+    os.makedirs(refined_test_case_run_log_dir)
+
     evaluate_refined_test_cases(refined_test_case_save_dir, is_ref='no_ref')
     evaluate_refined_test_cases(refined_test_case_save_dir, is_ref='rag_ref')
     
+    ## merge refined test case log and coverage results into final test case log and coverage results
+    refined_log_coverage_save_dir = configs.get_refined_test_case_log_and_coverage_save_dir()
+
+    final_tc_log_cov_save_path = configs.final_test_case_log_and_coverage_save_path
+    if os.path.exists(final_tc_log_cov_save_path):
+        before_refine_test_case_log_cov_path = final_tc_log_cov_save_path
+    else:
+        before_refine_test_case_log_cov_path = configs.test_case_log_and_coverage_save_path
+
+    merge_refined_test_cases(
+        before_refine_test_case_log_cov_path, 
+        refined_log_coverage_save_dir, 
+        final_tc_log_cov_save_path
+        )
+    
+    # statistics of final test cases coverages
+    final_tc_log_cov_save_path = configs.final_test_case_log_and_coverage_save_path
+    statistic = Statistic(final_tc_log_cov_save_path)
+    get_statistics(statistic)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
