@@ -2,6 +2,7 @@ import os
 import re
 import json
 import evaluate
+from utils import load_project_apis, extract_method_invocation_from_java_code
 
 
 class Statistic():
@@ -86,7 +87,7 @@ class Statistic():
 
         return bleu_no_ref, bleu_with_rag_ref
 
-    def load_test_cases(self, is_pass: bool=False, is_common: bool=False):
+    def load_test_cases(self, is_pass: bool=False, is_common: bool=False, return_focal_method=False):
         if is_common:
             is_pass = True
 
@@ -99,12 +100,13 @@ class Statistic():
             target_test_case = each_test_case['target_test_case']
             test_case_no_ref = each_test_case['generation_no_ref']
             test_case_rag_ref = each_test_case['generation_rag_ref']
+            fm_name = each_test_case['focal_method_name']
             
             if (not is_pass) or each_test_case['result_no_ref'] == 'SUCCESS':
-                test_case_no_ref_target_pairs.append((test_case_no_ref, target_test_case))
+                test_case_no_ref_target_pairs.append((test_case_no_ref, target_test_case, fm_name))
 
             if (not is_pass) or each_test_case['result_rag_ref'] == 'SUCCESS':
-                test_case_rag_ref_target_pairs.append((test_case_rag_ref, target_test_case))
+                test_case_rag_ref_target_pairs.append((test_case_rag_ref, target_test_case, fm_name))
             
         return test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs
 
@@ -189,7 +191,7 @@ class Statistic():
     def get_positive_negative_rag_ref_coverage(self):
         is_common = True
         is_ref = 'no_ref'
-        coverages = self.load_coverage(is_ref=is_ref, n_cover_line_threshold=1)
+        coverages = self.get_filtered_coverages(is_ref=is_ref, n_cover_line_threshold=1)
 
         if is_common:
             another_is_ref = 'rag_ref' if is_ref == 'no_ref' else 'no_ref'
@@ -263,7 +265,7 @@ class Statistic():
 
         return bleu_4
     
-    def load_coverage(self, is_ref, n_cover_line_threshold: int=1):
+    def get_filtered_coverages(self, is_ref, n_cover_line_threshold: int=1, is_common: bool=False):
         assert is_ref in ['no_ref', 'rag_ref']
         assert n_cover_line_threshold > 0
         
@@ -277,6 +279,15 @@ class Statistic():
                 continue
             
             coverages.append(each_tc_cov)
+        
+        if is_common:
+            another_is_ref = 'rag_ref' if is_ref == 'no_ref' else 'no_ref'
+            common_coverages = []
+            for each_cov in coverages:
+                if each_cov[f'coverage_{another_is_ref}'] is not None:
+                    common_coverages.append(each_cov)
+            coverages = common_coverages
+
         return coverages
                 
     def analyze_coverage(self, is_ref, n_cover_line_threshold: int=1, is_common: bool=False):
@@ -287,15 +298,7 @@ class Statistic():
         assert is_ref in ['no_ref', 'rag_ref']
         assert n_cover_line_threshold > 0
         
-        coverages = self.load_coverage(is_ref, n_cover_line_threshold)
-
-        if is_common:
-            another_is_ref = 'rag_ref' if is_ref == 'no_ref' else 'no_ref'
-            common_coverages = []
-            for each_cov in coverages:
-                if each_cov[f'coverage_{another_is_ref}'] is not None:
-                    common_coverages.append(each_cov)
-            coverages = common_coverages
+        coverages = self.get_filtered_coverages(is_ref, n_cover_line_threshold, is_common=is_common)
 
         print(f'\n\nCoverage Analysis: is_ref={is_ref}, Threshold={n_cover_line_threshold}, is_common={is_common}\n')  
 
@@ -392,3 +395,49 @@ class Statistic():
         cover_ratio = len(covered_lines_set_generated & covered_lines_set_target) / len(covered_lines_set_target)
 
         return is_exact_match, is_fully_cover, cover_ratio
+    
+    def analyze_apis(self, project_apis_extraction_save_path, project_dir, is_pass, is_common):
+        api_set = load_project_apis(project_apis_extraction_save_path, project_dir)
+
+        test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs = self.load_test_cases(is_pass=is_pass, is_common=is_common, return_focal_method=True)
+
+        print(f'\n\nAPI Analysis: is_pass={is_pass}, is_common={is_common}')
+        target_tc_api_count, no_ref_gen_tc_api_count, no_ref_gen_tc_api_cov_target_tc_api_ratio = self._analyze_apis(test_case_no_ref_target_pairs, api_set)
+
+        target_tc_api_count, rag_ref_gen_tc_api_count, rag_ref_gen_tc_api_cov_target_tc_api_ratio = self._analyze_apis(test_case_rag_ref_target_pairs, api_set)
+
+        target_avg_gen_tc_api_count = sum(target_tc_api_count) / len(target_tc_api_count)
+
+        no_ref_avg_gen_tc_api_count = sum(no_ref_gen_tc_api_count) / len(no_ref_gen_tc_api_count)
+        no_ref_avg_api_cov_ratio = sum(no_ref_gen_tc_api_cov_target_tc_api_ratio) / len(no_ref_gen_tc_api_cov_target_tc_api_ratio)    
+        
+        rag_ref_avg_gen_tc_api_count = sum(rag_ref_gen_tc_api_count) / len(rag_ref_gen_tc_api_count)
+        rag_ref_avg_api_cov_ratio = sum(rag_ref_gen_tc_api_cov_target_tc_api_ratio) / len(rag_ref_gen_tc_api_cov_target_tc_api_ratio)
+
+        print(f'[Target] Average API Count: {target_avg_gen_tc_api_count:.2f}')
+        print(f'[no_ref] Average API Count: {no_ref_avg_gen_tc_api_count:.2f}')
+        print(f'[no_ref] Average API Coverage Ratio: {no_ref_avg_api_cov_ratio:.2%}')
+        print(f'[rag_ref] Average API Count: {rag_ref_avg_gen_tc_api_count:.2f}')
+        print(f'[rag_ref] Average API Coverage Ratio: {rag_ref_avg_api_cov_ratio:.2%}')
+    
+    def _analyze_apis(self, test_case_target_pairs, api_set):
+        target_tc_api_count = []
+        gen_tc_api_count = []
+        gen_tc_api_cov_target_tc_api_ratio = []  # the ratio of the number of APIs in the target test case that are also in the generated test case 
+
+        for gen_tc, target_tc, fm_name in test_case_target_pairs:
+            fm_name = fm_name.split('::::')[1].split('(')[0]
+            target_tc_api = set(extract_method_invocation_from_java_code(target_tc))
+            target_tc_api.discard(fm_name)
+            gen_tc_api = set(extract_method_invocation_from_java_code(gen_tc))
+            gen_tc_api.discard(fm_name)
+
+            target_tc_in_project_api = target_tc_api & api_set
+            gen_tc_in_project_api = gen_tc_api & api_set
+
+            target_tc_api_count.append(len(target_tc_in_project_api))
+            gen_tc_api_count.append(len(gen_tc_in_project_api))
+            gen_tc_api_cov_target_tc_api_ratio.append(
+                len(gen_tc_in_project_api & target_tc_in_project_api) / len(target_tc_in_project_api) if len(target_tc_in_project_api) > 0 else 0
+                )
+        return target_tc_api_count, gen_tc_api_count, gen_tc_api_cov_target_tc_api_ratio

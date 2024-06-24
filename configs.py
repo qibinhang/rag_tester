@@ -9,7 +9,7 @@ class Configs:
         self.retrieval_mode = ['fm', 'tc', 'both'][0]
         self.retrieval_top_k = 1
 
-        self.version = f'v0.14.1_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
+        self.version = f'v0.15.0_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
         self.version_intro = 'refine the wrong test cases'
         
         self.max_context_len = 1024
@@ -40,6 +40,8 @@ class Configs:
         self.coverage_human_labeled_dir = f'{self.root_dir}/rag_tester/data/coverage_human_labeled'
         self.coverage_model_unlabeled_dir = f'{self.root_dir}/rag_tester/data/coverage_model_unlabeled'
         self.coverage_model_labeled_dir = f'{self.root_dir}/rag_tester/data/coverage_model_labeled'
+
+        self.project_apis_extraction_save_path = f'{self.root_dir}/rag_tester/data/project_apis_extraction/{self.project_name}_apis.json'
 
         self.set_retriever_configs()
         self.set_coverage_labeling_model_configs()
