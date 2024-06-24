@@ -103,14 +103,20 @@ class Statistic():
             fm_name = each_test_case['focal_method_name']
             
             if (not is_pass) or each_test_case['result_no_ref'] == 'SUCCESS':
-                test_case_no_ref_target_pairs.append((test_case_no_ref, target_test_case, fm_name))
+                no_ref_pair = [test_case_no_ref, target_test_case]
+                if return_focal_method:
+                    no_ref_pair.append(fm_name)
+                test_case_no_ref_target_pairs.append(no_ref_pair)
 
             if (not is_pass) or each_test_case['result_rag_ref'] == 'SUCCESS':
-                test_case_rag_ref_target_pairs.append((test_case_rag_ref, target_test_case, fm_name))
+                rag_ref_pair = [test_case_rag_ref, target_test_case]
+                if return_focal_method:
+                    rag_ref_pair.append(fm_name)
+                test_case_rag_ref_target_pairs.append(rag_ref_pair)
             
         return test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs
 
-    def get_negative_rag_ref_pass(self):
+    def print_negative_rag_ref_pass(self):
         print('\n\nNegative RAG Reference: ')
 
         for each_tc_log_cov in self.test_case_log_analysis:
@@ -124,20 +130,26 @@ class Statistic():
                     print('-'*50)
                 print('='*50)
     
-    def get_positive_rag_ref_pass(self):
+    def print_positive_rag_ref_pass(self):
         print('\n\nPositive RAG Reference: ')
+        pos_tc_log_cov = self.get_positive_rag_ref_pass()
+        for each_tc_log_cov in pos_tc_log_cov:
+            print(f'- focal_method:\n{each_tc_log_cov["target_coverage"]}')
+            print(f'- no_ref:\n{each_tc_log_cov["generation_no_ref"]}')
+            print(f'- rag_ref:\n{each_tc_log_cov["generation_rag_ref"]}\n')
+            for each_ref in each_tc_log_cov['rag_references']:
+                print(f'- rag_ref score: {each_ref[0]}\n')
+                print(f'- rag_ref coverage:\n{each_ref[1]}\n')
+                print(f'- rag_ref test case:\n{each_ref[2]}\n')
+                print('-'*50)
+            print('='*50)
 
+    def get_positive_rag_ref_pass(self):
+        pos_tc_log_cov = []
         for each_tc_log_cov in self.test_case_log_analysis:
             if each_tc_log_cov['result_no_ref'] != 'SUCCESS' and each_tc_log_cov['result_rag_ref'] == 'SUCCESS':
-                print(f'- focal_method:\n{each_tc_log_cov["target_coverage"]}')
-                print(f'- no_ref:\n{each_tc_log_cov["generation_no_ref"]}')
-                print(f'- rag_ref:\n{each_tc_log_cov["generation_rag_ref"]}\n')
-                for each_ref in each_tc_log_cov['rag_references']:
-                    print(f'- rag_ref score: {each_ref[0]}\n')
-                    print(f'- rag_ref coverage:\n{each_ref[1]}\n')
-                    print(f'- rag_ref test case:\n{each_ref[2]}\n')
-                    print('-'*50)
-                print('='*50)
+                pos_tc_log_cov.append(each_tc_log_cov)
+        return pos_tc_log_cov
 
     def get_negative_rag_ref_compilation(self):
         compilation_error_type = ['cannot find symbol',]
@@ -396,15 +408,37 @@ class Statistic():
 
         return is_exact_match, is_fully_cover, cover_ratio
     
+    def analyze_positive_reg_ref_apis(self, project_apis_extraction_save_path, project_dir):
+        api_set = load_project_apis(project_apis_extraction_save_path, project_dir)
+
+        positive_cases = self.get_positive_rag_ref_pass()
+
+        test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs = [], []
+        for each_pos_case in positive_cases:
+            target_test_case = each_pos_case['target_test_case']
+            test_case_no_ref = each_pos_case['generation_no_ref']
+            test_case_rag_ref = each_pos_case['generation_rag_ref']
+            fm_name = each_pos_case['focal_method_name']
+
+            test_case_no_ref_target_pairs.append([test_case_no_ref, target_test_case, fm_name])
+
+            test_case_rag_ref_target_pairs.append([test_case_rag_ref, target_test_case, fm_name])
+        
+        print(f'\n\nAPI Analysis: Positive RAG Reference')
+        self._analyze_apis(test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs, api_set)
+
     def analyze_apis(self, project_apis_extraction_save_path, project_dir, is_pass, is_common):
         api_set = load_project_apis(project_apis_extraction_save_path, project_dir)
 
         test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs = self.load_test_cases(is_pass=is_pass, is_common=is_common, return_focal_method=True)
 
         print(f'\n\nAPI Analysis: is_pass={is_pass}, is_common={is_common}')
-        target_tc_api_count, no_ref_gen_tc_api_count, no_ref_gen_tc_api_cov_target_tc_api_ratio = self._analyze_apis(test_case_no_ref_target_pairs, api_set)
+        self._analyze_apis(test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs, api_set)
 
-        target_tc_api_count, rag_ref_gen_tc_api_count, rag_ref_gen_tc_api_cov_target_tc_api_ratio = self._analyze_apis(test_case_rag_ref_target_pairs, api_set)
+    def _analyze_apis(self, test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs, api_set):
+        target_tc_api_count, no_ref_gen_tc_api_count, no_ref_gen_tc_api_cov_target_tc_api_ratio = self.extract_and_count_apis(test_case_no_ref_target_pairs, api_set)
+
+        target_tc_api_count, rag_ref_gen_tc_api_count, rag_ref_gen_tc_api_cov_target_tc_api_ratio = self.extract_and_count_apis(test_case_rag_ref_target_pairs, api_set)
 
         target_avg_gen_tc_api_count = sum(target_tc_api_count) / len(target_tc_api_count)
 
@@ -420,7 +454,7 @@ class Statistic():
         print(f'[rag_ref] Average API Count: {rag_ref_avg_gen_tc_api_count:.2f}')
         print(f'[rag_ref] Average API Coverage Ratio: {rag_ref_avg_api_cov_ratio:.2%}')
     
-    def _analyze_apis(self, test_case_target_pairs, api_set):
+    def extract_and_count_apis(self, test_case_target_pairs, api_set):
         target_tc_api_count = []
         gen_tc_api_count = []
         gen_tc_api_cov_target_tc_api_ratio = []  # the ratio of the number of APIs in the target test case that are also in the generated test case 
