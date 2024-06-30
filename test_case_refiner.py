@@ -20,13 +20,15 @@ class TestCaseRefiner:
             
             target_cov = each_tc_log_cov['target_coverage']
             target_context = each_tc_log_cov['target_context']
+            focal_method_name = each_tc_log_cov['focal_method_name']
+            class_name = focal_method_name.split('::::')[0]
 
             generated_tc = each_tc_log_cov[f'generation_{is_ref}']
             generated_tc_error_msg = self.extract_error_message(each_tc_log_cov[f'log_path_{is_ref}'])
 
-            init_refined_tc = self._refine(generated_tc, generated_tc_error_msg, target_cov, target_context)
+            init_refined_tc = self._refine(generated_tc, generated_tc_error_msg, target_cov, target_context, class_name)
 
-            refined_tc, class_name = process_generated_test_case(init_refined_tc)
+            refined_tc = process_generated_test_case(init_refined_tc, class_name)
 
             if refined_tc is None:
                 print(f'[WARNING] Abnormal refined test case: {init_refined_tc}') 
@@ -57,8 +59,8 @@ class TestCaseRefiner:
         with open(save_path, 'w') as f:
             json.dump(refined_test_cases, f, indent=4)
 
-    def _refine(self, generated_tc, generated_tc_error_msg, target_cov, target_context):
-        messages = self.instruction_constructor.instruct_for_refine_test_case(generated_tc, generated_tc_error_msg, target_cov, target_context)
+    def _refine(self, generated_tc, generated_tc_error_msg, target_cov, target_context, focal_method_name):
+        messages = self.instruction_constructor.instruct_for_refine_test_case(generated_tc, generated_tc_error_msg, target_cov, target_context, focal_method_name)
         
         refined_tc = self.generator._generate_test_case_using_llama3(messages)
         

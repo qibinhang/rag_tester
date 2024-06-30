@@ -10,6 +10,11 @@ class Dataset:
         self.raw_data = None
         self.coverage_human_labeled = None
 
+    def load_focal_method_data(self):
+        path = os.path.join(self.configs.collected_focal_method_dir, f'{self.configs.project_name}.json')
+        coverage_data = self._load_coverage_data_jacoco(path)
+        return coverage_data
+
     # TODO: add the references: [[tc1, tc2, ...], [cov1, cov2, ...]]
     def load_coverage_data_jacoco(self):
         path = os.path.join(self.configs.coverage_human_labeled_dir, f'{self.configs.project_name}.json')

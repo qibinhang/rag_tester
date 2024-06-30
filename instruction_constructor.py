@@ -15,6 +15,10 @@ class InstructionConstructor:
 
         self.example_reference_test_case = """package spark;\n\nimport org.junit.Before;\nimport org.junit.Test;\n\npublic class FilterImplTest {\n\n    public String PATH_TEST;\n    public String ACCEPT_TYPE_TEST;\n    public FilterImpl filter;\n\n    @Before\n    public void setup(){\n        PATH_TEST = "/etc/test";\n        ACCEPT_TYPE_TEST  = "test/*";\n    }\n\n    @Test\n    public void testGets_thenReturnGetPathAndGetAcceptTypeSuccessfully() throws Exception {\n        filter = FilterImpl.create(PATH_TEST, ACCEPT_TYPE_TEST, null);\n    }\n}"""
 
+        self.example_non_reference_focal_method = """@Override\n    public void process(OutputStream outputStream, Object element)\n            throws IOException {\n        try (InputStream is = (InputStream) element) {\n            IOUtils.copy(is, outputStream);\n        }\n    }\n"""
+
+        self.example_non_reference_test_case = """package spark.serialization;\n\nimport org.junit.Assert;\nimport org.junit.Test;\n\nimport java.io.*;\n\npublic class InputStreamSerializerTest {\n\n    private InputStreamSerializer serializer = new InputStreamSerializer();\n\n    @Test\n    public void testProcess_copiesData() throws IOException {\n        byte[] bytes = \"Hello, Spark!\".getBytes();\n        ByteArrayInputStream input = new ByteArrayInputStream(bytes);\n        ByteArrayOutputStream output = new ByteArrayOutputStream();\n\n        serializer.process(output, input);\n\n        Assert.assertArrayEquals(bytes, output.toByteArray());\n    }\n\n}\n"""
+
     # TODO: make sure the tag <COVER> has been added to the vocabulary of the model
     def instruct_for_coverage_predict_given_tc(self, target_focal_method, context, target_test_case, example_fm_context_tc_cov: list=None):
         if example_fm_context_tc_cov is not None:
@@ -60,29 +64,53 @@ class InstructionConstructor:
         return [{"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}]
 
-    def instruct_for_test_case_generate_given_fm(self, target_focal_method, context, reference_test_case=None, reference_focal_method=None):
-        system_prompt = f"""You are an expert in Junit test case generation. I will give you a target focal method, then you need to generate a JUnit test case with Junit version=4.12 and Java version=1.8. The generated test case must contain one test class and one test method and should be runnable. You must think carefully and pay attention to syntactic correctness.\n"""
+    def instruct_for_test_case_generate_given_fm(self, target_focal_method, context, reference_test_cases=None, reference_focal_methods=None):
+        system_prompt = f"""Task: You are an expert in Junit test case generation. Your task is to generate JUnit test cases for a given Java focal method. The test cases should cover as many focal method's lines as possible.\n"""
 
-        system_prompt += f"""For example, I will give you the following target focal method:\n```\n{self.example_target_focal_method}\n```\nThe target focal method belongs to the following java file :\n```\n{self.example_target_context}\n```\n"""
+        system_prompt += f"""# EXAMPLE:\n## Input: Focal Method:\n```\n{self.example_target_focal_method}\n```\n\n## Output: Test Case:\n```\n{self.example_target_test_case}\n```\n"""
 
-        if reference_test_case is not None:
-            assert reference_focal_method is not None
-            system_prompt += f"""The following is a reference test case that might be helpful for your generation:\n```\n{self.example_reference_test_case}\n```\nThe reference test case is used to test the following reference focal method:\n```\n{self.example_reference_focal_method}\n```\nGiven the above input, you need to generate the following target test case, which contains test class RouteImplTest and test method testCreate_whenAcceptTypeNullValueInTheParameters_thenReturnPathAndAcceptTypeSuccessfully():\n```\n{self.example_target_test_case}\n```\n"""
+        user_prompt = f"# Instructions:\n## Input: Focal Method:\n```\n{target_focal_method}\n```\n"
+        user_prompt += f"## The focal method belongs to the following java file:\n```\n{context}\n```\n"
+        user_prompt += f"## Instruction:\nGenerate JUnit test cases for the input focal method. The test cases must meet the following requirements:\n1. execute as many focal method's lines as possible.\n2. do not contain assertion statements.\n3. use JUnit version 4.12.\n4. be compatible with Java version 1.8.\n\n"
 
-        user_prompt = f"The following is the target focal method that you need to generate a test case. Remember, the generated test case must contain one test class and one test method.\n```\n{target_focal_method}\n```"
+        if reference_test_cases is not None:
+            user_prompt += f"## References:\nHere are some referable focal methods and their corresponding test cases, which might be helpful for your generation:\n"
+            user_prompt += f""
+            for i in range(len(reference_test_cases)):
+                user_prompt += f"### Input: Focal Method {i+1}:\n```\n{reference_focal_methods[i]}\n```\n\n"
+                user_prompt += f"### Output: Test Case {i+1}:\n```\n{reference_test_cases[i]}\n```\n"
 
-        user_prompt += f'\n\nThe target focal method belongs to the following java file:\n```\n{context}\n```'
+        messages = [{"role": "system", "content": system_prompt}, 
+                    {"role": "user", "content": user_prompt}]
 
-        if reference_test_case is not None:
-            user_prompt += f'\n\nThe following is a reference test case that might be helpful for your generation:\n```\n{reference_test_case}\n```\nThe reference test case is used to test the following reference focal method:\n```\n{reference_focal_method}\n```\n'
+        return messages
+    
+    def instruct_for_test_case_generate_given_fm_with_ref_examples(self, target_focal_method, context, focal_method_name, reference_test_cases=None, reference_focal_methods=None):
+        system_prompt = f"""Task: You are an expert in Junit test case generation. Your task is to generate one complete JUnit test case for a given Java focal method. The test case should cover as many focal method's lines as possible.\n"""
+
+        # system_prompt += f"""# EXAMPLE 1:\n## Input: Target Focal Method:\n```\n{self.example_target_focal_method}\n```\n\n## Output:\nThere is no referable focal method and test case. The generated target test case:\n```\n{self.example_target_test_case}\n```\n"""
+
+        system_prompt += f"""# EXAMPLE 1:\n## Input: Target Focal Method:\n```\n{self.example_target_focal_method}\n```\n\n## Reference:\n### referable focal method:\n```\n{self.example_reference_focal_method}\n```\n\n### referable test case:\n```\n{self.example_reference_test_case}\n```\n\n## Output:\nThe referable focal method and test case are relevant to the target focal method, so I refer to them and generate a test case for the input focal method. The generated target test case:\n```\n{self.example_reference_test_case}\n```\n\n"""
+
+        system_prompt += f"""# EXAMPLE 2:\n## Input: Target Focal Method:\n```\n{self.example_target_focal_method}\n```\n\n## Reference:\n### referable focal method:\n```\n{self.example_non_reference_focal_method}\n```\n\n### referable test case:\n```\n{self.example_non_reference_test_case}\n```\n\n## Output:\nThe referable focal method and test case are irrelevant to the target focal method, so I will not refer to them. The generated target test case:\n```\n{self.example_target_test_case}\n```\n\n"""
+
+        user_prompt = f"# Instructions:\n## Input: Target Focal Method:\n```\n{target_focal_method}\n```\n\n"
+        user_prompt += f"## The focal method belongs to the following java file:\n```\n{context}\n```\n\n"
+
+        if reference_test_cases is not None:
+            user_prompt += f"## Reference:\n"
+            for i in range(len(reference_test_cases)):
+                user_prompt += f"### referable focal method {i+1}:\n```\n{reference_focal_methods[i]}\n```\n\n"
+                user_prompt += f"### referable test case {i+1}:\n```\n{reference_test_cases[i]}\n```\n\n"
+
+        user_prompt += f"## Instruction:\nGenerate one complete JUnit test case for the target focal method. The output must meet the following requirements:\n1. decide whether the reference is relevant.\n2. the test case's name is {focal_method_name}Test \n3. execute as many focal method's lines as possible.\n4. do not contain assertion statements.\n4. use JUnit version 4.12.\n5. be compatible with Java version 1.8.\n\n"
 
         messages = [{"role": "system", "content": system_prompt}, 
                     {"role": "user", "content": user_prompt}]
 
         return messages
 
-
-    def instruct_for_test_case_generate_given_cov(self, target_coverage, context, references_test_case: List[str]=None, references_coverage: List[str]=None):
+    def instruct_for_test_case_generate_given_cov(self, target_coverage, context, reference_test_cases: List[str]=None, reference_coverages: List[str]=None):
         system_prompt = f"""Task: Generate a JUnit test case for a given Java focal method to ensure specific lines of code are executed. The focal method includes special tags `<COVER>` indicating the code lines that need to be executed by the test case. \n"""
 
         system_prompt += f"""# EXAMPLE:\n## Input: Focal Method:\n```\n{self.example_target_coverage}\n```\n\n## Output: Test Case:\n```\n{self.example_target_test_case}\n```\n"""
@@ -91,24 +119,21 @@ class InstructionConstructor:
         user_prompt += f"## The focal method belongs to the following java file:\n```\n{context}\n```\n"
         user_prompt += f"## Instruction:\nGenerate a JUnit test case for the input focal method. The test case must meet the following requirements:\n1. execute all lines marked with `<COVER>`.\n2. not contain assertion statements.\n3. contain only one test class and one test method.\n4. use JUnit version 4.12.\n5. be compatible with Java version 1.8.\n\n"
 
-        if references_test_case is not None:
+        if reference_test_cases is not None:
             user_prompt += f"## References:\nHere are some referable focal methods and their corresponding test cases, which might be helpful for your generation:\n"
             user_prompt += f""
-            for i in range(len(references_test_case)):
-                user_prompt += f"### Input: Focal Method {i+1}:\n```\n{references_coverage[i]}\n```\n\n"
-                user_prompt += f"### Output: Test Case {i+1}:\n```\n{references_test_case[i]}\n```\n"
+            for i in range(len(reference_test_cases)):
+                user_prompt += f"### Input: Focal Method {i+1}:\n```\n{reference_coverages[i]}\n```\n\n"
+                user_prompt += f"### Output: Test Case {i+1}:\n```\n{reference_test_cases[i]}\n```\n"
 
         messages = [{"role": "system", "content": system_prompt}, 
                     {"role": "user", "content": user_prompt}]
 
         return messages
     
-    
-    def instruct_for_test_case_generate_given_coverage(target_coverage, context, reference_test_case=None, reference_coverage=None):
-        pass
-
-    def instruct_for_refine_test_case(self, generated_tc, generated_tc_error_msg, target_cov, target_context):
-        instruct_initial_generation = self.instruct_for_test_case_generate_given_cov(target_cov, target_context)
+    def instruct_for_refine_test_case(self, generated_tc, generated_tc_error_msg, target_cov, target_context, focal_method_name):
+        # instruct_initial_generation = self.instruct_for_test_case_generate_given_cov(target_cov, target_context)
+        instruct_initial_generation = self.instruct_for_test_case_generate_given_fm_with_ref_examples(target_cov, target_context, focal_method_name)
 
         assistant_generation = f"""Generated test case:\n```\n{generated_tc}\n```"""
         user_error_msg_instruct = f"""When exectuing the generated test case, encounter the following error:\n```\n{generated_tc_error_msg}\n```\nPlease refine the generated test case to fix the error.\n"""

@@ -27,7 +27,11 @@ def generate_all_test_cases(generator):
 def pipeline_for_generation_with_rag():
     # load target focal methods
     dataset = Dataset(configs)
-    coverage_data = dataset.load_coverage_data_jacoco()
+    # print('Loading jacoco labelled coverages...')
+    # coverage_data = dataset.load_coverage_data_jacoco()
+
+    print('Loading focal methods...')
+    coverage_data = dataset.load_focal_method_data()
 
     # generating test case
     generated_test_cases = []  # list[(focal_file_path, generation_no_ref, generation_human_ref, generation_rag_ref)]
@@ -57,16 +61,16 @@ def pipeline_for_generation_with_rag():
 
         # generate test cases
         # with no reference
-        generation_no_ref = generator.generate_test_case(target_coverage, context)
+        generation_no_ref = generator.generate_test_case(target_coverage, context, focal_method_name.split('::::')[0])
 
         # TODO: check the reference_human
         # with human reference
         generation_human_ref = None
         if references_human is not None:
-            generation_human_ref = generator.generate_test_case(target_coverage, context, references_test_case=references_human[0], references_coverage=references_human[1])
+            generation_human_ref = generator.generate_test_case(target_coverage, context, focal_method_name.split('::::')[0], references_test_case=references_human[0], references_coverage=references_human[1])
 
         # with rag reference
-        generation_rag_ref = generator.generate_test_case(target_coverage, context, references_test_case=references_tc_rag, references_coverage=references_cov_rag)
+        generation_rag_ref = generator.generate_test_case(target_coverage, context, focal_method_name.split('::::')[0], references_test_case=references_tc_rag, references_coverage=references_cov_rag)
         rag_references = [(references_score[i], references_cov_rag[i], references_tc_rag[i]) for i in range(len(references_cov_rag))]
 
         generated_test_cases.append({
@@ -132,9 +136,16 @@ def get_statistics(statistic):
     statistic.analyze_coverage(is_ref='no_ref', n_cover_line_threshold=3, is_common=True)
     statistic.analyze_coverage(is_ref='rag_ref', n_cover_line_threshold=3, is_common=True)
 
+    print('\n- In Project API analysis:')
+    statistic.analyze_apis(configs.project_apis_extraction_save_path, f'{configs.project_dir}/{configs.project_name}', is_pass=False, is_common=False)
+    statistic.analyze_apis(configs.project_apis_extraction_save_path, f'{configs.project_dir}/{configs.project_name}', is_pass=True, is_common=False)
+    statistic.analyze_apis(configs.project_apis_extraction_save_path, f'{configs.project_dir}/{configs.project_name}', is_pass=True, is_common=True)
+
+    statistic.analyze_positive_reg_ref_apis(configs.project_apis_extraction_save_path, f'{configs.project_dir}/{configs.project_name}')
+
     # analyze the positive and negative references
-    # statistic.get_negative_rag_ref_pass()
-    # statistic.get_positive_rag_ref_pass()
+    # statistic.print_negative_rag_ref_pass()
+    # statistic.print_positive_rag_ref_pass()
     # statistic.get_positive_negative_rag_ref_coverage()
     # statistic.get_negative_rag_ref_compilation()
 
@@ -226,6 +237,7 @@ def main():
     get_statistics(statistic)
 
     # refine round 1
+    print('Refining test cases...')
     ## refine
     configs.refine_round = 1
     refined_test_case_save_dir = configs.get_refined_test_case_save_dir()
@@ -250,10 +262,7 @@ def main():
     refined_log_coverage_save_dir = configs.get_refined_test_case_log_and_coverage_save_dir()
 
     final_tc_log_cov_save_path = configs.final_test_case_log_and_coverage_save_path
-    if os.path.exists(final_tc_log_cov_save_path):
-        before_refine_test_case_log_cov_path = final_tc_log_cov_save_path
-    else:
-        before_refine_test_case_log_cov_path = configs.test_case_log_and_coverage_save_path
+    before_refine_test_case_log_cov_path = configs.test_case_log_and_coverage_save_path
 
     merge_refined_test_cases(
         before_refine_test_case_log_cov_path, 

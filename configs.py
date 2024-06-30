@@ -9,11 +9,11 @@ class Configs:
         self.retrieval_mode = ['fm', 'tc', 'both'][0]
         self.retrieval_top_k = 1
 
-        self.version = f'v0.15.0_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
-        self.version_intro = 'refine the wrong test cases'
+        self.version = f'v0.16.1_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
+        self.version_intro = 'generate for the focal method rather than coverage; allow to generate multiple test cases for one focal method; add examples in the system prompt to instruct model to determine whether reference is relevant and to use relevant reference.'
         
         self.max_context_len = 1024
-        self.max_input_len = 3072
+        self.max_input_len = 4096
         self.max_num_generated_tokens = 1024
         self.do_sample = False
         self.top_p = None
@@ -40,6 +40,8 @@ class Configs:
         self.coverage_human_labeled_dir = f'{self.root_dir}/rag_tester/data/coverage_human_labeled'
         self.coverage_model_unlabeled_dir = f'{self.root_dir}/rag_tester/data/coverage_model_unlabeled'
         self.coverage_model_labeled_dir = f'{self.root_dir}/rag_tester/data/coverage_model_labeled'
+
+        self.collected_focal_method_dir = f'{self.root_dir}/rag_tester/data/collected_focal_method'
 
         self.project_apis_extraction_save_path = f'{self.root_dir}/rag_tester/data/project_apis_extraction/{self.project_name}_apis.json'
 
