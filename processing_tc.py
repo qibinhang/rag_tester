@@ -80,11 +80,11 @@ def _extract_test_case(init_generation, test_case_class_name):
 
     test_case = None
     for each_code in result:
-        if '@Test' in each_code and test_case_class_name in each_code:
+        if '@Test' in each_code and f'{test_case_class_name}Test' in each_code:
             test_case = each_code
             break
     if test_case is None:
-        print(f'[WARNING] does not meet the requirement ("@Test" and test_case_class_name ({test_case_class_name}) in extracted code):\n', f'Extracted code:\n{result}\n\n', f'initial code:\n{init_generation}\n\n')
+        print(f'[WARNING] does not meet the requirement ("@Test" and test_case_class_name ({test_case_class_name}Test) in extracted code):\n', f'Extracted code:\n{result}\n\n', f'initial code:\n{init_generation}\n\n')
         return None
     
     return test_case

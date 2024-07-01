@@ -21,21 +21,21 @@ class TestCaseRefiner:
             target_cov = each_tc_log_cov['target_coverage']
             target_context = each_tc_log_cov['target_context']
             focal_method_name = each_tc_log_cov['focal_method_name']
-            class_name = focal_method_name.split('::::')[0]
+            fm_class_name = focal_method_name.split('::::')[0]
 
             generated_tc = each_tc_log_cov[f'generation_{is_ref}']
             generated_tc_error_msg = self.extract_error_message(each_tc_log_cov[f'log_path_{is_ref}'])
 
-            init_refined_tc = self._refine(generated_tc, generated_tc_error_msg, target_cov, target_context, class_name)
+            init_refined_tc = self._refine(generated_tc, generated_tc_error_msg, target_cov, target_context, fm_class_name)
 
-            refined_tc = process_generated_test_case(init_refined_tc, class_name)
+            refined_tc = process_generated_test_case(init_refined_tc, fm_class_name)
 
             if refined_tc is None:
                 print(f'[WARNING] Abnormal refined test case: {init_refined_tc}') 
                 continue
 
             test_case_dir = os.path.dirname(each_tc_log_cov[f'generation_{is_ref}_path'])
-            test_case_path = f'{test_case_dir}/{class_name}.java'
+            test_case_path = f'{test_case_dir}/{fm_class_name}Test.java'
 
             each_tc_log_cov[f'before_refined_{is_ref}'] = {
                 'error_msg': generated_tc_error_msg,
