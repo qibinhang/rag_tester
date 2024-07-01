@@ -28,7 +28,7 @@ class TestCaseRefiner:
 
             init_refined_tc = self._refine(generated_tc, generated_tc_error_msg, target_cov, target_context, fm_class_name)
 
-            refined_tc = process_generated_test_case(init_refined_tc, fm_class_name)
+            refined_tc = process_generated_test_case(init_refined_tc, test_case_class_name=f'{fm_class_name}Test')
 
             if refined_tc is None:
                 print(f'[WARNING] Abnormal refined test case: {init_refined_tc}') 
