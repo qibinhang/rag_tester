@@ -3,21 +3,23 @@ from typing import List
 
 class InstructionConstructor:
     def __init__(self):
-        self.example_target_focal_method = """public static RouteImpl create(final String path, String acceptType, final Route route) {\n    if (acceptType == null) {\n        acceptType = DEFAULT_ACCEPT_TYPE;\n    }\n    return new RouteImpl(path, acceptType, route) {\n        @Override\n        public Object handle(Request request, Response response) throws Exception {\n            return route.handle(request, response);\n        }\n    };\n}"""
+        self.system_base_prompt = f"""Task: You are an expert in Junit test case generation. Your task is to generate a JUnit test case without assertion statements for a given Java focal method.\n"""
 
-        self.example_target_context = """package spark;\n\nimport spark.utils.Wrapper;\npublic abstract class RouteImpl implements Route, Wrapper {\n    static final String DEFAULT_ACCEPT_TYPE = "*/*";\n\n    private String path;\n    private String acceptType;\n    private Object delegate;\n\n    public static RouteImpl create(final String path, String acceptType, final Route route) {\n        if (acceptType == null) {\n            acceptType = DEFAULT_ACCEPT_TYPE;\n        }\n        return new RouteImpl(path, acceptType, route) {\n            @Override\n            public Object handle(Request request, Response response) throws Exception {\n                return route.handle(request, response);\n            }\n        };\n    }\n}"""
+        self.example_target_focal_method = """public static RouteImpl create(final String path, String acceptType, final Route route) {\n\tif (acceptType == null) {\n\t\tacceptType = DEFAULT_ACCEPT_TYPE;\n\t}\n\treturn new RouteImpl(path, acceptType, route) {\n\t\t@Override\n\t\tpublic Object handle(Request request, Response response) throws Exception {\n\t\t\treturn route.handle(request, response);\n\t\t}\n\t};\n}"""
 
-        self.example_target_test_case = """package spark;\n\nimport org.junit.Test;\n\npublic class RouteImplTest {\n\n    private final static String PATH_TEST = "/opt/test";\n    private final static String ACCEPT_TYPE_TEST  = "*/test";\n\n    private RouteImpl route;\n\n    @Test\n    public void testCreate_whenAcceptTypeNullValueInTheParameters_thenReturnPathAndAcceptTypeSuccessfully(){\n        route = RouteImpl.create(PATH_TEST, null, null);\n    }\n}"""
+        self.example_target_context = """package spark;\n\nimport spark.utils.Wrapper;\npublic abstract class RouteImpl implements Route, Wrapper {\n\tstatic final String DEFAULT_ACCEPT_TYPE = "*/*";\n\n\tprivate String path;\n\tprivate String acceptType;\n\tprivate Object delegate;\n\n\tpublic static RouteImpl create(final String path, String acceptType, final Route route) {\n\t\tif (acceptType == null) {\n\t\t\tacceptType = DEFAULT_ACCEPT_TYPE;\n\t\t}\n\t\treturn new RouteImpl(path, acceptType, route) {\n\t\t\t@Override\n\t\t\tpublic Object handle(Request request, Response response) throws Exception {\n\t\t\t\treturn route.handle(request, response);\n\t\t\t}\n\t\t};\n\t}\n}"""
 
-        self.example_target_coverage = """public static RouteImpl create(final String path, String acceptType, final Route route) {\n<COVER>        if (acceptType == null) {\n<COVER>            acceptType = DEFAULT_ACCEPT_TYPE;\n    }\n<COVER>        return new RouteImpl(path, acceptType, route) {\n        @Override\n        public Object handle(Request request, Response response) throws Exception {\n            return route.handle(request, response);\n        }\n    };\n}"""
+        self.example_target_test_case = """package spark;\n\nimport org.junit.Test;\n\npublic class RouteImplTest {\n\n\tprivate final static String PATH_TEST = "/opt/test";\n\tprivate final static String ACCEPT_TYPE_TEST  = "*/test";\n\n\tprivate RouteImpl route;\n\n\t@Test\n\tpublic void testCreate_whenAcceptTypeNullValueInTheParameters_thenReturnPathAndAcceptTypeSuccessfully(){\n\t\troute = RouteImpl.create(PATH_TEST, null, null);\n\t}\n}"""
 
-        self.example_reference_focal_method = """static FilterImpl create(final String path, String acceptType, final Filter filter) {\n    if (acceptType == null) {\n        acceptType = DEFAULT_ACCEPT_TYPE;\n    }\n    return new FilterImpl(path, acceptType, filter) {\n        @Override\n        public void handle(Request request, Response response) throws Exception {\n            filter.handle(request, response);\n        }\n    };\n}"""
+        self.example_target_coverage = """public static RouteImpl create(final String path, String acceptType, final Route route) {\n<COVER>\t\tif (acceptType == null) {\n<COVER>\t\t\tacceptType = DEFAULT_ACCEPT_TYPE;\n\t}\n<COVER>\t\treturn new RouteImpl(path, acceptType, route) {\n\t\t@Override\n\t\tpublic Object handle(Request request, Response response) throws Exception {\n\t\t\treturn route.handle(request, response);\n\t\t}\n\t};\n}"""
 
-        self.example_reference_test_case = """package spark;\n\nimport org.junit.Before;\nimport org.junit.Test;\n\npublic class FilterImplTest {\n\n    public String PATH_TEST;\n    public String ACCEPT_TYPE_TEST;\n    public FilterImpl filter;\n\n    @Before\n    public void setup(){\n        PATH_TEST = "/etc/test";\n        ACCEPT_TYPE_TEST  = "test/*";\n    }\n\n    @Test\n    public void testGets_thenReturnGetPathAndGetAcceptTypeSuccessfully() throws Exception {\n        filter = FilterImpl.create(PATH_TEST, ACCEPT_TYPE_TEST, null);\n    }\n}"""
+        self.example_reference_focal_method = """static FilterImpl create(final String path, String acceptType, final Filter filter) {\n\tif (acceptType == null) {\n\t\tacceptType = DEFAULT_ACCEPT_TYPE;\n\t}\n\treturn new FilterImpl(path, acceptType, filter) {\n\t\t@Override\n\t\tpublic void handle(Request request, Response response) throws Exception {\n\t\t\tfilter.handle(request, response);\n\t\t}\n\t};\n}"""
 
-        self.example_non_reference_focal_method = """@Override\n    public void process(OutputStream outputStream, Object element)\n            throws IOException {\n        try (InputStream is = (InputStream) element) {\n            IOUtils.copy(is, outputStream);\n        }\n    }\n"""
+        self.example_reference_test_case = """package spark;\n\nimport org.junit.Before;\nimport org.junit.Test;\n\npublic class FilterImplTest {\n\n\tpublic String PATH_TEST;\n\tpublic String ACCEPT_TYPE_TEST;\n\tpublic FilterImpl filter;\n\n\t@Before\n\tpublic void setup(){\n\t\tPATH_TEST = "/etc/test";\n\t\tACCEPT_TYPE_TEST  = "test/*";\n\t}\n\n\t@Test\n\tpublic void testGets_thenReturnGetPathAndGetAcceptTypeSuccessfully() throws Exception {\n\t\tfilter = FilterImpl.create(PATH_TEST, ACCEPT_TYPE_TEST, null);\n\t}\n}"""
 
-        self.example_non_reference_test_case = """package spark.serialization;\n\nimport org.junit.Assert;\nimport org.junit.Test;\n\nimport java.io.*;\n\npublic class InputStreamSerializerTest {\n\n    private InputStreamSerializer serializer = new InputStreamSerializer();\n\n    @Test\n    public void testProcess_copiesData() throws IOException {\n        byte[] bytes = \"Hello, Spark!\".getBytes();\n        ByteArrayInputStream input = new ByteArrayInputStream(bytes);\n        ByteArrayOutputStream output = new ByteArrayOutputStream();\n\n        serializer.process(output, input);\n\n        Assert.assertArrayEquals(bytes, output.toByteArray());\n    }\n\n}\n"""
+        self.example_non_reference_focal_method = """@Override\npublic void process(OutputStream outputStream, Object element)\n\t\tthrows IOException {\n\ttry (InputStream is = (InputStream) element) {\n\t\tIOUtils.copy(is, outputStream);\n\t}\n}\n"""
+
+        self.example_non_reference_test_case = """package spark.serialization;\n\nimport org.junit.Assert;\nimport org.junit.Test;\n\nimport java.io.*;\n\npublic class InputStreamSerializerTest {\n\n\tprivate InputStreamSerializer serializer = new InputStreamSerializer();\n\n\t@Test\n\tpublic void testProcess_copiesData() throws IOException {\n\t\tbyte[] bytes = "Hello, Spark!".getBytes();\n\t\tByteArrayInputStream input = new ByteArrayInputStream(bytes);\n\t\tByteArrayOutputStream output = new ByteArrayOutputStream();\n\n\t\tserializer.process(output, input);\n\n\t\tAssert.assertArrayEquals(bytes, output.toByteArray());\n\t}\n\n}\n"""
 
     # TODO: make sure the tag <COVER> has been added to the vocabulary of the model
     def instruct_for_coverage_predict_given_tc(self, target_focal_method, context, target_test_case, example_fm_context_tc_cov: list=None):
@@ -86,7 +88,7 @@ class InstructionConstructor:
         return messages
     
     def instruct_for_test_case_generate_given_fm_with_ref_examples(self, target_focal_method, context, focal_method_name, reference_test_cases=None, reference_focal_methods=None):
-        system_prompt = f"""Task: You are an expert in Junit test case generation. Your task is to generate one complete JUnit test case for a given Java focal method. The test case should cover as many focal method's lines as possible.\n"""
+        system_prompt = self.system_base_prompt
 
         # system_prompt += f"""# EXAMPLE 1:\n## Input: Target Focal Method:\n```\n{self.example_target_focal_method}\n```\n\n## Output:\nThere is no referable focal method and test case. The generated target test case:\n```\n{self.example_target_test_case}\n```\n"""
 
@@ -103,7 +105,23 @@ class InstructionConstructor:
                 user_prompt += f"### referable focal method {i+1}:\n```\n{reference_focal_methods[i]}\n```\n\n"
                 user_prompt += f"### referable test case {i+1}:\n```\n{reference_test_cases[i]}\n```\n\n"
 
-        user_prompt += f"## Instruction:\nGenerate one complete JUnit test case for the target focal method. The output must meet the following requirements:\n1. decide whether the reference is relevant.\n2. the test case's name is {focal_method_name}Test \n3. execute as many focal method's lines as possible.\n4. do not contain assertion statements.\n4. use JUnit version 4.12.\n5. be compatible with Java version 1.8.\n\n"
+        requirements = [
+            "decide whether the reference is relevant.",
+            f"the test case's name is {focal_method_name}Test",
+            # "execute as many lines of focal method as possible.",
+            "do not contain assertion statements.",
+            "use JUnit version 4.12.",
+            "be compatible with Java version 1.8.",
+            # "number of test methods annotated with @Test is less than 5."
+            # "the number of test method annotated with @Test is only one."
+        ]
+
+        requirements = requirements if reference_test_cases is not None else requirements[1:]
+
+        user_prompt += f"## Instruction:\nGenerate a JUnit test case for the target focal method. The output must meet the following requirements:\n"
+
+        for i, req in enumerate(requirements):
+            user_prompt += f"{i+1}. {req}\n"
 
         messages = [{"role": "system", "content": system_prompt}, 
                     {"role": "user", "content": user_prompt}]
@@ -135,13 +153,21 @@ class InstructionConstructor:
         # instruct_initial_generation = self.instruct_for_test_case_generate_given_cov(target_cov, target_context)
         instruct_initial_generation = self.instruct_for_test_case_generate_given_fm_with_ref_examples(target_cov, target_context, focal_method_name)
 
-        assistant_generation = f"""Generated test case:\n```\n{generated_tc}\n```"""
+        system_prompt = self.system_base_prompt
+
+        for each_role_prompt in instruct_initial_generation:
+            if each_role_prompt["role"] == "user":
+                user_prompt_1 = each_role_prompt["content"]
+                break
+
+        assistant_generation = f"""Generated test case:\n```\n{generated_tc}\n```\n"""
         user_error_msg_instruct = f"""When exectuing the generated test case, encounter the following error:\n```\n{generated_tc_error_msg}\n```\nPlease refine the generated test case to fix the error.\n"""
 
         instruct_refine = [
+            {"role": "system", "content": system_prompt}, 
+            {"role": "user", "content": user_prompt_1}, 
             {"role": "assistant", "content": assistant_generation}, 
             {"role": "user", "content": user_error_msg_instruct}
             ]
         
-        messages = instruct_initial_generation + instruct_refine
-        return messages
+        return instruct_refine

@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 
@@ -59,12 +60,16 @@ class TestCaseRunner():
 
     def run_test_case_and_get_coverage(self, test_case, test_case_path, focal_file_path, is_ref):
         print(f'Running the test case with = {is_ref} = reference...')
+        # remove the folder of test cases
+        tc_rel_path = test_case_path.split('/src/test/')[1]
+        tc_base_dir = test_case_path.replace(tc_rel_path, '')
+        if os.path.exists(tc_base_dir):
+            shutil.rmtree(tc_base_dir)
         os.makedirs(os.path.dirname(test_case_path), exist_ok=True)
         with open(test_case_path, 'w') as f:
             f.write(test_case)
 
         tc_run_log_path = self.run_test_case(test_case_path, focal_file_path, is_ref)
-        os.remove(test_case_path)
 
         focal_file_coverage = self.get_focal_file_coverage(focal_file_path, test_case_path)
         focal_file_coverage = ''.join(focal_file_coverage) if focal_file_coverage is not None else None

@@ -17,6 +17,8 @@ def process_all_generated_test_cases(initial_test_case_save_path, processed_test
         # test_case_name = focal_file_path.split('/')[-1].split('.')[0]
         test_case_dir = focal_case_dir.replace('/main/', '/test/')
         fm_file_name = each_test_case['focal_method_name'].split('::::')[0]
+        if '.' in fm_file_name:
+            fm_file_name = fm_file_name.split('.')[-1]
         test_case_class_name = f'{fm_file_name}Test'
 
         test_case_no_ref = process_generated_test_case(each_test_case['generation_no_ref'], test_case_class_name)
@@ -60,7 +62,7 @@ def process_generated_test_case(init_generation, test_case_class_name):
     if test_case is None:
         return None
     
-    test_case = _remove_assertions(test_case)
+    # test_case = _remove_assertions(test_case)
     # class_name = _get_class_name(test_case)
     
     # return test_case, class_name
@@ -82,7 +84,7 @@ def _extract_test_case(init_generation, test_case_class_name):
             test_case = each_code
             break
     if test_case is None:
-        print('[WARNING] does not meet the requirement (@Test in each_code and test_case_class_name in each_code):\n', init_generation, '\n\n')
+        print(f'[WARNING] does not meet the requirement ("@Test" and test_case_class_name ({test_case_class_name}) in extracted code):\n', f'Extracted code:\n{result}\n\n', f'initial code:\n{init_generation}\n\n')
         return None
     
     return test_case

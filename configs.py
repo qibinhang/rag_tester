@@ -9,8 +9,8 @@ class Configs:
         self.retrieval_mode = ['fm', 'tc', 'both'][0]
         self.retrieval_top_k = 1
 
-        self.version = f'v0.16.1_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
-        self.version_intro = 'generate for the focal method rather than coverage; allow to generate multiple test cases for one focal method; add examples in the system prompt to instruct model to determine whether reference is relevant and to use relevant reference.'
+        self.version = f'v0.16.7_mode_{self.retrieval_mode}_k{self.retrieval_top_k}'
+        self.version_intro = '1. add preprcessing for input source code to replace "    " with "\\t"\n2. do not limit the number of test methods.\n3. do not ask to cover as many lines as possible.\n4. do not post-process to remove assertions, as it could result in test case with wrong syntax.\n5. remove "as many as possible" from sysyem prompt and simplify the refine prompt.\n6. remove "complete" from the prompt as it conflict with "no assertion statement"'
         
         self.max_context_len = 1024
         self.max_input_len = 4096

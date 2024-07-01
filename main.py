@@ -59,18 +59,22 @@ def pipeline_for_generation_with_rag():
         retriever = RetrieverBM25(corpus_cov, corpus_fm, corpus_tc)
         references_cov_rag, references_fm_rag, references_tc_rag, references_score = retriever.retrieve(target_fm=target_focal_method, top_k=configs.retrieval_top_k, mode=configs.retrieval_mode)
 
+        fm_class_name = focal_method_name.split('::::')[0]
+        if '.' in fm_class_name:
+            fm_class_name = fm_class_name.split('.')[-1]
+            
         # generate test cases
         # with no reference
-        generation_no_ref = generator.generate_test_case(target_coverage, context, focal_method_name.split('::::')[0])
+        generation_no_ref = generator.generate_test_case(target_coverage, context, fm_class_name)
 
         # TODO: check the reference_human
         # with human reference
         generation_human_ref = None
         if references_human is not None:
-            generation_human_ref = generator.generate_test_case(target_coverage, context, focal_method_name.split('::::')[0], references_test_case=references_human[0], references_coverage=references_human[1])
+            generation_human_ref = generator.generate_test_case(target_coverage, context, fm_class_name, references_test_case=references_human[0], references_coverage=references_human[1])
 
         # with rag reference
-        generation_rag_ref = generator.generate_test_case(target_coverage, context, focal_method_name.split('::::')[0], references_test_case=references_tc_rag, references_coverage=references_cov_rag)
+        generation_rag_ref = generator.generate_test_case(target_coverage, context, fm_class_name, references_test_case=references_tc_rag, references_coverage=references_cov_rag)
         rag_references = [(references_score[i], references_cov_rag[i], references_tc_rag[i]) for i in range(len(references_cov_rag))]
 
         generated_test_cases.append({

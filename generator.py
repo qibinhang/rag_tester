@@ -73,6 +73,7 @@ class Generator():
         ).to(self.model.device)
 
         if self.configs.verbose:
+            # print('\n\n', messages, '\n\n')
             for each_msg in messages:
                 print(f'\n=={each_msg["role"]}==')
                 print(f"{each_msg['content']}\n")
@@ -98,6 +99,11 @@ class Generator():
         return generated_test_case
     
     def generate_test_case(self, target_coverage, context, focal_method_name, references_test_case: List[str]=None, references_coverage: List[str]=None):
+        target_coverage = self.preprocess_code(target_coverage)
+        context = self.preprocess_code(context)
+        references_test_case = [self.preprocess_code(each_ref) for each_ref in references_test_case] if references_test_case is not None else None
+        references_coverage = [self.preprocess_code(each_ref) for each_ref in references_coverage] if references_coverage is not None else None
+
         if self.configs.llm_name in ('llama_3','llama_3:70b'):
             generation = self.generate_test_case_using_llama3(target_coverage, context, focal_method_name, references_test_case, references_coverage)
         else:
@@ -146,3 +152,11 @@ class Generator():
             test_cases.append((focal_file_path, test_case_no_ref, test_case_with_ref))
 
         return test_cases
+    
+    def preprocess_code(self, code):
+        code_lines = code.split('\n')
+        processed_code_lines = []
+        for each_line in code_lines:
+            proc_line = each_line.replace('    ', '\t')
+            processed_code_lines.append(proc_line)
+        return '\n'.join(processed_code_lines)
