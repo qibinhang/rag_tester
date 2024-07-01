@@ -436,53 +436,76 @@ class Statistic():
         self._analyze_apis(test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs, api_set)
 
     def _analyze_apis(self, test_case_no_ref_target_pairs, test_case_rag_ref_target_pairs, api_set):
-        target_tc_api_count, no_ref_gen_tc_api_count, no_ref_gen_tc_api_cov_target_tc_api_ratio, target_tc_api_total, no_ref_gen_tc_api_total = self.extract_and_count_apis(test_case_no_ref_target_pairs, api_set)
+        target_tc_api_count, no_ref_gen_tc_api_count, no_ref_gen_tc_api_cov_target_tc_api_ratio, no_ref_gen_tc_api_cov_target_tc_api_ratio_remove_fm, target_tc_api_total, no_ref_gen_tc_api_total = self.extract_and_count_apis(test_case_no_ref_target_pairs, api_set)
 
-        target_tc_api_count, rag_ref_gen_tc_api_count, rag_ref_gen_tc_api_cov_target_tc_api_ratio, target_tc_api_total, rag_ref_gen_tc_api_total = self.extract_and_count_apis(test_case_rag_ref_target_pairs, api_set)
+        target_tc_api_count, rag_ref_gen_tc_api_count, rag_ref_gen_tc_api_cov_target_tc_api_ratio, rag_ref_gen_tc_api_cov_target_tc_api_ratio_remove_fm, target_tc_api_total, rag_ref_gen_tc_api_total = self.extract_and_count_apis(test_case_rag_ref_target_pairs, api_set)
 
         target_avg_gen_tc_api_count = sum(target_tc_api_count) / len(target_tc_api_count)
 
         no_ref_avg_gen_tc_api_count = sum(no_ref_gen_tc_api_count) / len(no_ref_gen_tc_api_count)
-        no_ref_avg_api_cov_ratio = sum(no_ref_gen_tc_api_cov_target_tc_api_ratio) / len(no_ref_gen_tc_api_cov_target_tc_api_ratio)    
+        no_ref_avg_api_cov_ratio = sum(no_ref_gen_tc_api_cov_target_tc_api_ratio) / len(no_ref_gen_tc_api_cov_target_tc_api_ratio)
+        no_ref_avg_api_cov_ratio_remove_fm = sum(no_ref_gen_tc_api_cov_target_tc_api_ratio_remove_fm) / len(no_ref_gen_tc_api_cov_target_tc_api_ratio_remove_fm)
         
         rag_ref_avg_gen_tc_api_count = sum(rag_ref_gen_tc_api_count) / len(rag_ref_gen_tc_api_count)
         rag_ref_avg_api_cov_ratio = sum(rag_ref_gen_tc_api_cov_target_tc_api_ratio) / len(rag_ref_gen_tc_api_cov_target_tc_api_ratio)
+        rag_ref_avg_api_cov_ratio_remove_fm = sum(rag_ref_gen_tc_api_cov_target_tc_api_ratio_remove_fm) / len(rag_ref_gen_tc_api_cov_target_tc_api_ratio_remove_fm)
 
         print(f'[Target] Avg #APIs/TC: {target_avg_gen_tc_api_count:.2f}')
-        print(f'[Target] #APIs in Total: {target_tc_api_total}')
+        print(f'[Target] #APIs in Total: {target_tc_api_total}\n')
         
+        print(f'[no_ref] #TC: {len(test_case_no_ref_target_pairs)}')
         print(f'[no_ref] Avg #APIs/TC: {no_ref_avg_gen_tc_api_count:.2f}')
         print(f'[no_ref] Avg API Coverage Ratio per TC: {no_ref_avg_api_cov_ratio:.2%}')
-        print(f'[no_ref] #APIs in Total: {no_ref_gen_tc_api_total}')
+        print(f'[no_ref] Avg API Coverage Ratio per TC (remove FM): {no_ref_avg_api_cov_ratio_remove_fm:.2%}')
+        print(f'[no_ref] #APIs in Total: {no_ref_gen_tc_api_total}\n')
 
+        print(f'[rag_ref] #TC: {len(test_case_rag_ref_target_pairs)}')
         print(f'[rag_ref] Avg #APIs/TC: {rag_ref_avg_gen_tc_api_count:.2f}')
         print(f'[rag_ref] Avg API Coverage Ratio per TC: {rag_ref_avg_api_cov_ratio:.2%}')
-        print(f'[rag_ref] #APIs in Total: {rag_ref_gen_tc_api_total}')
+        print(f'[rag_ref] Avg API Coverage Ratio per TC (remove FM): {rag_ref_avg_api_cov_ratio_remove_fm:.2%}')
+        print(f'[rag_ref] #APIs in Total: {rag_ref_gen_tc_api_total}\n')
     
     def extract_and_count_apis(self, test_case_target_pairs, api_set):
         target_tc_api_count = []
         target_tc_in_project_api_set = set()
         gen_tc_api_count = []
         gen_tc_api_cov_target_tc_api_ratio = []  # the ratio of the number of APIs in the target test case that are also in the generated test case 
+        gen_tc_api_cov_target_tc_api_ratio_remove_fm = []  # the ratio of the number of APIs in the target test case that are also in the generated test case (remove the focal method api)
         gen_tc_in_project_api_set = set()
 
         for gen_tc, target_tc, fm_name in test_case_target_pairs:
             fm_name = fm_name.split('::::')[1].split('(')[0]
             target_tc_api = set(extract_method_invocation_from_java_code(target_tc))
-            target_tc_api.discard(fm_name)
-
-            gen_tc_api = set(extract_method_invocation_from_java_code(gen_tc))
-            gen_tc_api.discard(fm_name)
-
             target_tc_in_project_api = target_tc_api & api_set
             target_tc_in_project_api_set.update(target_tc_in_project_api)
+            target_tc_api_count.append(len(target_tc_in_project_api))
 
+            gen_tc_api = set(extract_method_invocation_from_java_code(gen_tc))
             gen_tc_in_project_api = gen_tc_api & api_set
             gen_tc_in_project_api_set.update(gen_tc_in_project_api)
-
-            target_tc_api_count.append(len(target_tc_in_project_api))
             gen_tc_api_count.append(len(gen_tc_in_project_api))
-            gen_tc_api_cov_target_tc_api_ratio.append(
-                len(gen_tc_in_project_api & target_tc_in_project_api) / len(target_tc_in_project_api) if len(target_tc_in_project_api) > 0 else 0
-                )
-        return target_tc_api_count, gen_tc_api_count, gen_tc_api_cov_target_tc_api_ratio, len(target_tc_in_project_api_set), len(gen_tc_in_project_api_set)
+
+            if len(target_tc_in_project_api) > 0:
+                gen_tc_api_cov_target_tc_api_ratio.append(
+                    len(gen_tc_in_project_api & target_tc_in_project_api) / len(target_tc_in_project_api)
+                    )
+
+            if fm_name in gen_tc_in_project_api and fm_name in target_tc_in_project_api:
+                target_tc_in_project_api.discard(fm_name)
+                gen_tc_in_project_api.discard(fm_name)
+            if len(target_tc_in_project_api) > 0:
+                gen_tc_api_cov_target_tc_api_ratio_remove_fm.append(
+                    len(gen_tc_in_project_api & target_tc_in_project_api) / len(target_tc_in_project_api)
+                    )
+            
+        return target_tc_api_count, gen_tc_api_count, gen_tc_api_cov_target_tc_api_ratio, gen_tc_api_cov_target_tc_api_ratio_remove_fm, len(target_tc_in_project_api_set), len(gen_tc_in_project_api_set)
+    
+
+if __name__ == '__main__':
+    from configs import Configs
+
+    configs = Configs('blade/blade-kit')
+    statistic = Statistic(configs.test_case_log_and_coverage_save_path)
+    # statistic.analyze_apis(configs.project_apis_extraction_save_path, f'{configs.project_dir}/{configs.project_name}', is_pass=False, is_common=False)
+    statistic.analyze_apis(configs.project_apis_extraction_save_path, f'{configs.project_dir}/{configs.project_name}', is_pass=True, is_common=False)
+    # statistic.analyze_apis(configs.project_apis_extraction_save_path, f'{configs.project_dir}/{configs.project_name}', is_pass=True, is_common=True)
